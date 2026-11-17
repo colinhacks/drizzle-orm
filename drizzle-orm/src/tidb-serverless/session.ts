@@ -71,7 +71,8 @@ export class TiDBServerlessSession<
 	static override readonly [entityKind]: string = 'TiDBServerlessSession';
 
 	private logger: Logger;
-	private client: Tx | Connection;
+	/** @internal */
+	client: Tx | Connection;
 	private cache: Cache;
 
 	constructor(
@@ -162,9 +163,18 @@ export class TiDBServerlessTransaction<
 	TRelations extends AnyRelations,
 > extends MySqlAsyncTransaction<
 	TiDBServerlessQueryResultHKT,
-	TRelations
+	TRelations,
+	Tx
 > {
 	static override readonly [entityKind]: string = 'TiDBServerlessTransaction';
+
+	/** @internal */
+	declare session: TiDBServerlessSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Tx {
+		return this.session.client as Tx;
+	}
 
 	constructor(
 		dialect: MySqlDialect,

@@ -64,8 +64,14 @@ export abstract class DsqlAsyncSession<
 export abstract class DsqlAsyncTransaction<
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends DsqlAsyncDatabase<TQueryResult, TRelations> {
+	TTransactionClient = any,
+> extends DsqlAsyncDatabase<TQueryResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'DsqlAsyncTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: PgDialect,
@@ -82,7 +88,7 @@ export abstract class DsqlAsyncTransaction<
 
 	/** Aurora DSQL has no savepoints, so a transaction can't be nested inside another one */
 	override async transaction<T>(
-		_transaction: (tx: DsqlAsyncTransaction<TQueryResult, TRelations>) => Promise<T>,
+		_transaction: (tx: DsqlAsyncTransaction<TQueryResult, TRelations, TTransactionClient>) => Promise<T>,
 	): Promise<T> {
 		throw new DrizzleError({
 			message: 'Aurora DSQL does not support nested transactions: savepoints are unavailable',

@@ -4,7 +4,7 @@ import type { NodePgDatabase, NodePgRawExecuteResult } from 'drizzle-orm/node-po
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { getTableConfig, integer, pgTable, serial, text, timestamp } from 'drizzle-orm/pg-core';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-import { Pool, type QueryResult } from 'pg';
+import { type Client, Pool, type PoolClient, type QueryResult } from 'pg';
 import { describe, expect, expectTypeOf } from 'vitest';
 import { randomString } from '~/utils';
 import { tests } from './common';
@@ -711,5 +711,29 @@ test('failed begin on transaction does not return client to the pool', async ({ 
 	} finally {
 		await pool.end();
 		await peer!.query('drop table if exists begin_timeout_probe');
+	}
+});
+
+test('tx.$client is the pool client the transaction runs on', async ({ kit }) => {
+	const url = new URL(process.env['PG_CONNECTION_STRING']!);
+	url.pathname = `/${kit.database}`;
+	const pool = new Pool({ connectionString: url.toString() });
+	const db = drizzle({ client: pool });
+
+	try {
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<PoolClient | Client>();
+			expect(tx.$client).not.toBe(pool);
+
+			const viaClient = await tx.$client.query('select txid_current()::text as txid');
+			const viaTx = await tx.execute<{ txid: string }>(sql`select txid_current()::text as txid`);
+			expect(viaClient.rows).toEqual(viaTx.rows);
+
+			await tx.transaction(async (sp) => {
+				expect(sp.$client).toBe(tx.$client);
+			});
+		});
+	} finally {
+		await pool.end();
 	}
 });

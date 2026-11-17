@@ -95,7 +95,8 @@ export class MySql2Session<
 	private rawTextTypeCast: TypeCastFunction;
 
 	constructor(
-		private client: MySql2Client,
+		/** @internal */
+		readonly client: MySql2Client,
 		dialect: MySqlDialect,
 		private relations: TRelations,
 		private options: MySql2SessionOptions,
@@ -227,9 +228,18 @@ export class MySql2Transaction<
 	TRelations extends AnyRelations,
 > extends MySqlAsyncTransaction<
 	MySql2QueryResultHKT,
-	TRelations
+	TRelations,
+	PoolConnection | Connection
 > {
 	static override readonly [entityKind]: string = 'MySql2Transaction';
+
+	/** @internal */
+	declare session: MySql2Session<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolConnection | Connection {
+		return this.session.client as PoolConnection | Connection;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: MySql2Transaction<TRelations>) => Promise<T>,

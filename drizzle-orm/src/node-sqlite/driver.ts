@@ -10,7 +10,7 @@ import { nodeSQLiteCodecs } from './codecs.ts';
 import { type NodeSQLiteRunResult, NodeSQLiteSession } from './session.ts';
 
 export class NodeSQLiteDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'sync', NodeSQLiteRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'sync', NodeSQLiteRunResult, TRelations, DatabaseSync>
 {
 	static override readonly [entityKind]: string = 'NodeSQLiteDatabase';
 }

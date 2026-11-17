@@ -42,7 +42,8 @@ export class NodePgSession<
 	private cache: Cache;
 
 	constructor(
-		private client: NodePgClient,
+		/** @internal */
+		readonly client: NodePgClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: NodePgSessionOptions = {},
@@ -154,8 +155,16 @@ export class NodePgSession<
 
 export class NodePgTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<NodePgQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<NodePgQueryResultHKT, TRelations, PoolClient | Client> {
 	static override readonly [entityKind]: string = 'NodePgTransaction';
+
+	/** @internal */
+	declare session: NodePgSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolClient | Client {
+		return this.session.client as PoolClient | Client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: NodePgTransaction<TRelations>) => Promise<T>,

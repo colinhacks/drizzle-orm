@@ -10,7 +10,7 @@ import { sqlJsCodecs } from './codecs.ts';
 import { type SQLJsRunResult, SQLJsSession } from './session.ts';
 
 export class SQLJsDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'sync', SQLJsRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'sync', SQLJsRunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'SQLJsDatabase';
 }

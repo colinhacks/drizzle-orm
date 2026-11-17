@@ -330,8 +330,14 @@ export abstract class SingleStoreTransaction<
 	TQueryResult extends SingleStoreQueryResultHKT,
 	TPreparedQueryHKT extends PreparedQueryHKTBase,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends SingleStoreDatabase<TQueryResult, TPreparedQueryHKT, TRelations> {
+	TTransactionClient = any,
+> extends SingleStoreDatabase<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'SingleStoreTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: SingleStoreDialect,
@@ -349,7 +355,7 @@ export abstract class SingleStoreTransaction<
 	/** Nested transactions (aka savepoints) only work with InnoDB engine. */
 	abstract override transaction<T>(
 		transaction: (
-			tx: SingleStoreTransaction<TQueryResult, TPreparedQueryHKT, TRelations>,
+			tx: SingleStoreTransaction<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient>,
 		) => Promise<T>,
 	): Promise<T>;
 }

@@ -1,4 +1,4 @@
-import pg, { type Pool, type PoolConfig } from 'pg';
+import pg, { type Client, type Pool, type PoolClient, type PoolConfig } from 'pg';
 import { CockroachDatabase } from '~/cockroach-core/db.ts';
 import { CockroachDialect } from '~/cockroach-core/dialect.ts';
 import type { DrizzleCockroachConfig } from '~/cockroach-core/utils.ts';
@@ -41,7 +41,7 @@ export class NodeCockroachDriver {
 
 export class NodeCockroachDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends CockroachDatabase<NodeCockroachQueryResultHKT, TRelations> {
+> extends CockroachDatabase<NodeCockroachQueryResultHKT, TRelations, PoolClient | Client> {
 	static override readonly [entityKind]: string = 'NodeCockroachDatabase';
 }
 

@@ -37,6 +37,7 @@ import type { CockroachMaterializedView } from './view.ts';
 export class CockroachDatabase<
 	TQueryResult extends CockroachQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'CockroachDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -741,7 +742,7 @@ export class CockroachDatabase<
 	}
 
 	transaction<T>(
-		transaction: (tx: CockroachTransaction<TQueryResult, TRelations>) => Promise<T>,
+		transaction: (tx: CockroachTransaction<TQueryResult, TRelations, TTransactionClient>) => Promise<T>,
 		config?: CockroachTransactionConfig,
 	): Promise<T> {
 		return this.session.transaction(transaction, config);

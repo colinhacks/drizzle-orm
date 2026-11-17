@@ -9,7 +9,7 @@ import { durableSQLiteCodecs } from './codecs.ts';
 import { type DurableSQLiteRunResult, SQLiteDOSession } from './session.ts';
 
 export class DrizzleSqliteDODatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'sync', DurableSQLiteRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'sync', DurableSQLiteRunResult, TRelations, DurableObjectStorage>
 {
 	static override readonly [entityKind]: string = 'DrizzleSqliteDODatabase';
 

@@ -1,4 +1,4 @@
-import { type Config, connect, type Connection } from '@tidbcloud/serverless';
+import { type Config, connect, type Connection, type Tx } from '@tidbcloud/serverless';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { MySqlAsyncDatabase } from '~/mysql-core/async/db.ts';
@@ -11,7 +11,7 @@ import type { TiDBServerlessQueryResultHKT } from './session.ts';
 import { TiDBServerlessSession } from './session.ts';
 
 export class TiDBServerlessDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends MySqlAsyncDatabase<TiDBServerlessQueryResultHKT, TRelations>
+	extends MySqlAsyncDatabase<TiDBServerlessQueryResultHKT, TRelations, Tx>
 {
 	static override readonly [entityKind]: string = 'TiDBServerlessDatabase';
 }

@@ -35,6 +35,7 @@ export class SingleStoreDatabase<
 	TQueryResult extends SingleStoreQueryResultHKT,
 	TPreparedQueryHKT extends PreparedQueryHKTBase,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'SingleStoreDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -577,7 +578,7 @@ export class SingleStoreDatabase<
 
 	transaction<T>(
 		transaction: (
-			tx: SingleStoreTransaction<TQueryResult, TPreparedQueryHKT, TRelations>,
+			tx: SingleStoreTransaction<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient>,
 			config?: SingleStoreTransactionConfig,
 		) => Promise<T>,
 		config?: SingleStoreTransactionConfig,

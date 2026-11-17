@@ -1,4 +1,4 @@
-import { neonConfig, Pool, type PoolConfig } from '@neondatabase/serverless';
+import { type Client, neonConfig, Pool, type PoolClient, type PoolConfig } from '@neondatabase/serverless';
 import type { Cache } from '~/cache/core/cache.ts';
 import { entityKind } from '~/entity.ts';
 import type { Logger } from '~/logger.ts';
@@ -19,7 +19,7 @@ export interface NeonDriverOptions {
 }
 
 export class NeonDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends PgAsyncDatabase<NeonQueryResultHKT, TRelations>
+	extends PgAsyncDatabase<NeonQueryResultHKT, TRelations, PoolClient | Client>
 {
 	static override readonly [entityKind]: string = 'NeonServerlessDatabase';
 }

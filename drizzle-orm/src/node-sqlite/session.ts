@@ -34,7 +34,8 @@ export class NodeSQLiteSession<TRelations extends AnyRelations>
 	private logger: Logger;
 
 	constructor(
-		private client: DatabaseSync,
+		/** @internal */
+		readonly client: DatabaseSync,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: NodeSQLiteSessionOptions = {},
@@ -122,9 +123,17 @@ export class NodeSQLiteSession<TRelations extends AnyRelations>
 }
 
 export class NodeSQLiteTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'sync', StatementResultingChanges, TRelations>
+	extends SQLiteAsyncTransaction<'sync', StatementResultingChanges, TRelations, DatabaseSync>
 {
 	static override readonly [entityKind]: string = 'SQLJsTransaction';
+
+	/** @internal */
+	declare session: NodeSQLiteSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): DatabaseSync {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

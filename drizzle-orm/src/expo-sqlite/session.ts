@@ -33,7 +33,8 @@ export class ExpoSQLiteSession<TRelations extends AnyRelations>
 	private logger: Logger;
 
 	constructor(
-		private client: SQLiteDatabase,
+		/** @internal */
+		readonly client: SQLiteDatabase,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: ExpoSQLiteSessionOptions = {},
@@ -125,8 +126,16 @@ export class ExpoSQLiteSession<TRelations extends AnyRelations>
 
 export class ExpoSQLiteTransaction<
 	TRelations extends AnyRelations,
-> extends SQLiteAsyncTransaction<'sync', ExpoSQLiteRunResult, TRelations> {
+> extends SQLiteAsyncTransaction<'sync', ExpoSQLiteRunResult, TRelations, SQLiteDatabase> {
 	static override readonly [entityKind]: string = 'ExpoSQLiteTransaction';
+
+	/** @internal */
+	declare session: ExpoSQLiteSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): SQLiteDatabase {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

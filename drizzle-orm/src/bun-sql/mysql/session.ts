@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 
-import type { SavepointSQL, SQL as BunSQL, TransactionSQL } from 'bun';
+import type { ReservedSQL, SavepointSQL, SQL as BunSQL, TransactionSQL } from 'bun';
 import { type Cache, NoopCache } from '~/cache/core/index.ts';
 import type { QueryMetadata, WithCacheConfig } from '~/cache/core/types.ts';
 import { entityKind } from '~/entity.ts';
@@ -121,9 +121,18 @@ export class BunMySqlTransaction<
 	TRelations extends AnyRelations,
 > extends MySqlAsyncTransaction<
 	BunMySqlQueryResultHKT,
-	TRelations
+	TRelations,
+	ReservedSQL
 > {
 	static override readonly [entityKind]: string = 'BunMySqlTransaction';
+
+	/** @internal */
+	declare session: BunMySqlSession<TransactionSQL | SavepointSQL, TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): ReservedSQL {
+		return this.session.client as unknown as ReservedSQL;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: BunMySqlTransaction<TRelations>) => Promise<T>,

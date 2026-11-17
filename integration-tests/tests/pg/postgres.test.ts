@@ -1,4 +1,4 @@
-import { connect, createPool } from '@drizzle-team/postgres';
+import { connect, type Connection, createPool } from '@drizzle-team/postgres';
 import { defineRelations, type RelationsBuilder, sql } from 'drizzle-orm';
 import {
 	boolean,
@@ -791,4 +791,28 @@ describe('transaction snapshot', () => {
 	test('does not let the id inject SQL', async ({ db }) => {
 		await assertSnapshotIdNotInjectable(db, expect, 'drizzle-postgres');
 	});
+});
+
+test('tx.$client is the connection the transaction runs on', async ({ kit }) => {
+	const url = new URL(process.env['PG_CONNECTION_STRING']!);
+	url.pathname = `/${kit.database}`;
+	const client = createPool({ url: url.toString(), max: 2 });
+	const db = drizzlePostgres({ client });
+
+	try {
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<Connection>();
+
+			const viaClient = await tx.$client.query('select txid_current()::text as txid', [], { mode: 'object' });
+			const viaTx = await tx.execute<{ txid: string }>(sql`select txid_current()::text as txid`);
+			expect(viaClient.rows).toEqual(viaTx.rows);
+
+			await tx.transaction(async (sp) => {
+				const inSavepoint = await sp.$client.query('select txid_current()::text as txid', [], { mode: 'object' });
+				expect(inSavepoint.rows).toEqual(viaClient.rows);
+			});
+		});
+	} finally {
+		await client.end();
+	}
 });

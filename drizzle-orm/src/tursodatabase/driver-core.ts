@@ -1,4 +1,4 @@
-import type { DatabasePromise, StatementPromise } from '@tursodatabase/database-common';
+import type { DatabasePromise, StatementPromise, Transaction } from '@tursodatabase/database-common';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import type { AnyRelations, EmptyRelations } from '~/relations.ts';
@@ -12,7 +12,7 @@ import { TursoDatabaseSession } from './session.ts';
 export type TursoDatabaseRunResult = Awaited<ReturnType<StatementPromise['run']>>;
 
 export class TursoDatabaseDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', TursoDatabaseRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', TursoDatabaseRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'TursoDatabaseDatabase';
 

@@ -1,4 +1,4 @@
-import type { Config } from '@planetscale/database';
+import type { Config, Transaction } from '@planetscale/database';
 import { Client } from '@planetscale/database';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
@@ -13,7 +13,7 @@ import { PlanetscaleSession } from './session.ts';
 
 export class PlanetScaleDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MySqlAsyncDatabase<PlanetscaleQueryResultHKT, TRelations> {
+> extends MySqlAsyncDatabase<PlanetscaleQueryResultHKT, TRelations, Transaction> {
 	static override readonly [entityKind]: string = 'PlanetScaleDatabase';
 }
 

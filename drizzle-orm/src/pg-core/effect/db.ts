@@ -39,6 +39,7 @@ export class PgEffectDatabase<
 	TEffectHKT extends QueryEffectHKTBase,
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'EffectPgDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -816,7 +817,7 @@ export class PgEffectDatabase<
 
 	transaction<A, E, R>(
 		transaction: (
-			tx: PgEffectTransaction<TEffectHKT, TQueryResult, TRelations>,
+			tx: PgEffectTransaction<TEffectHKT, TQueryResult, TRelations, TTransactionClient>,
 		) => Effect.Effect<A, E, R>,
 		config?: PgTransactionConfig,
 	): Effect.Effect<A, E | SqlError, R> {

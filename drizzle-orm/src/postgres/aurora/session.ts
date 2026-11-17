@@ -28,7 +28,8 @@ export class PostgresAuroraSession<
 	private cache: Cache;
 
 	constructor(
-		private client: PostgresAuroraClient,
+		/** @internal */
+		readonly client: PostgresAuroraClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: PostgresAuroraSessionOptions = {},
@@ -98,8 +99,16 @@ export class PostgresAuroraSession<
 
 export class PostgresAuroraTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<PostgresAuroraQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<PostgresAuroraQueryResultHKT, TRelations, PostgresAuroraClient> {
 	static override readonly [entityKind]: string = 'PostgresAuroraTransaction';
+
+	/** @internal */
+	declare session: PostgresAuroraSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PostgresAuroraClient {
+		return this.session.client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: PostgresAuroraTransaction<TRelations>) => Promise<T>,

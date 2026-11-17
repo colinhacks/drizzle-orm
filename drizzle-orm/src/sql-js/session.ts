@@ -33,7 +33,8 @@ export class SQLJsSession<TRelations extends AnyRelations>
 	private logger: Logger;
 
 	constructor(
-		private client: Database,
+		/** @internal */
+		readonly client: Database,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: SQLJsSessionOptions = {},
@@ -127,9 +128,17 @@ export class SQLJsSession<TRelations extends AnyRelations>
 }
 
 export class SQLJsTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'sync', SQLJsRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'sync', SQLJsRunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'SQLJsTransaction';
+
+	/** @internal */
+	declare session: SQLJsSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Database {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

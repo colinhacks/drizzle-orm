@@ -1,4 +1,4 @@
-import pgClient, { type Options, type PostgresType, type Sql } from 'postgres';
+import pgClient, { type Options, type PostgresType, type Sql, type TransactionSql } from 'postgres';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -11,7 +11,7 @@ import type { PostgresJsQueryResultHKT } from './session.ts';
 import { PostgresJsSession } from './session.ts';
 
 export class PostgresJsDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends PgAsyncDatabase<PostgresJsQueryResultHKT, TRelations>
+	extends PgAsyncDatabase<PostgresJsQueryResultHKT, TRelations, TransactionSql>
 {
 	static override readonly [entityKind]: string = 'PostgresJsDatabase';
 }

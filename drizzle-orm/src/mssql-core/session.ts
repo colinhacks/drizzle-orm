@@ -217,8 +217,14 @@ export abstract class MsSqlTransaction<
 	TQueryResult extends QueryResultHKT,
 	TPreparedQueryHKT extends PreparedQueryHKTBase,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MsSqlDatabase<TQueryResult, TPreparedQueryHKT, TRelations> {
+	TTransactionClient = any,
+> extends MsSqlDatabase<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'MsSqlTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: MsSqlDialect,
@@ -235,7 +241,7 @@ export abstract class MsSqlTransaction<
 
 	/** Nested transactions (aka savepoints) only work with InnoDB engine. */
 	abstract override transaction<T>(
-		transaction: (tx: MsSqlTransaction<TQueryResult, TPreparedQueryHKT, TRelations>) => Promise<T>,
+		transaction: (tx: MsSqlTransaction<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient>) => Promise<T>,
 	): Promise<T>;
 }
 

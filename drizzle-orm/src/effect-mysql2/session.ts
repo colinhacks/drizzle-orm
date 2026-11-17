@@ -43,7 +43,8 @@ export class EffectMysql2Session<
 	static override readonly [entityKind]: string = 'EffectMysql2Session';
 
 	constructor(
-		private client: MysqlClient,
+		/** @internal */
+		readonly client: MysqlClient,
 		dialect: MySqlDialect,
 		protected relations: TRelations,
 		private options: EffectMysql2SessionOptions,
@@ -106,8 +107,16 @@ export class EffectMysql2Session<
 export class EffectMysql2Transaction<
 	TQueryResult extends MySqlQueryResultHKT,
 	TRelations extends AnyRelations,
-> extends MySqlEffectTransaction<EffectMysql2QueryEffectHKT, TQueryResult, TRelations> {
+> extends MySqlEffectTransaction<EffectMysql2QueryEffectHKT, TQueryResult, TRelations, MysqlClient> {
 	static override readonly [entityKind]: string = 'EffectMysql2Transaction';
+
+	/** @internal */
+	declare session: EffectMysql2Session<TQueryResult, TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): MysqlClient {
+		return this.session.client;
+	}
 
 	override transaction<A, E, R>(
 		transaction: (

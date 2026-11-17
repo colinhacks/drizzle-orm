@@ -239,7 +239,8 @@ export class NetlifyDbWsSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: PoolClient,
+		/** @internal */
+		readonly client: PoolClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: NeonHttpSessionOptions = {},
@@ -293,9 +294,17 @@ export class NetlifyDbWsSession<TRelations extends AnyRelations>
 }
 
 export class NetlifyDbTransaction<TRelations extends AnyRelations>
-	extends PgAsyncTransaction<NeonHttpQueryResultHKT, TRelations>
+	extends PgAsyncTransaction<NeonHttpQueryResultHKT, TRelations, PoolClient>
 {
 	static override readonly [entityKind]: string = 'NetlifyDbTransaction';
+
+	/** @internal */
+	declare session: NetlifyDbWsSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolClient {
+		return this.session.client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: NetlifyDbTransaction<TRelations>) => Promise<T>,

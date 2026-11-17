@@ -92,8 +92,13 @@ export class BunSQLSession<
 
 export class BunSQLTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<BunSQLQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<BunSQLQueryResultHKT, TRelations, TransactionSQL | SavepointSQL> {
 	static override readonly [entityKind]: string = 'BunSQLTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): TransactionSQL | SavepointSQL {
+		return this.session.client;
+	}
 
 	constructor(
 		dialect: PgDialect,

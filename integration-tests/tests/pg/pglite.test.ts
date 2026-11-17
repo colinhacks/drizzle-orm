@@ -1,4 +1,4 @@
-import type { Results } from '@electric-sql/pglite';
+import type { Results, Transaction } from '@electric-sql/pglite';
 import { PGlite } from '@electric-sql/pglite';
 import { vector } from '@electric-sql/pglite-pgvector';
 import { postgis } from '@electric-sql/pglite-postgis';
@@ -414,4 +414,25 @@ describe('transaction snapshot', () => {
 	test('does not let the id inject SQL', async ({ db }) => {
 		await assertSnapshotIdNotInjectable(db, expect, 'pglite');
 	});
+});
+
+vitestTest('tx.$client is the pglite transaction', async () => {
+	const client = new PGlite();
+	const db = drizzle({ client });
+
+	try {
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<Transaction>();
+
+			const viaClient = await tx.$client.query('select txid_current()::text as txid');
+			const viaTx = await tx.execute<{ txid: string }>(sql`select txid_current()::text as txid`);
+			expect(viaClient.rows).toEqual(viaTx.rows);
+
+			await tx.transaction(async (sp) => {
+				expect(sp.$client).toBe(tx.$client);
+			});
+		});
+	} finally {
+		await client.close();
+	}
 });

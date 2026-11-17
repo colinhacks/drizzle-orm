@@ -36,6 +36,7 @@ export class MySqlEffectDatabase<
 	TEffectHKT extends QueryEffectHKTBase,
 	TQueryResult extends MySqlQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'MySqlEffectDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -588,7 +589,7 @@ export class MySqlEffectDatabase<
 
 	transaction<A, E, R>(
 		transaction: (
-			tx: MySqlEffectTransaction<TEffectHKT, TQueryResult, TRelations>,
+			tx: MySqlEffectTransaction<TEffectHKT, TQueryResult, TRelations, TTransactionClient>,
 		) => Effect.Effect<A, E, R>,
 	): Effect.Effect<A, E | SqlError, R> {
 		return this.session.transaction(transaction);

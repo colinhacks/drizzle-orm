@@ -799,6 +799,7 @@ export class BasePgAsyncDatabase<
 export class PgAsyncDatabase<
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > extends BasePgAsyncDatabase<TQueryResult, TRelations> {
 	static override readonly [entityKind]: string = 'PgAsyncDatabase';
 
@@ -820,7 +821,7 @@ export class PgAsyncDatabase<
 	}
 
 	transaction<T>(
-		transaction: (tx: PgAsyncTransaction<TQueryResult, TRelations>) => Promise<T>,
+		transaction: (tx: PgAsyncTransaction<TQueryResult, TRelations, TTransactionClient>) => Promise<T>,
 		config?: PgTransactionConfig,
 	): Promise<T> {
 		return this.session.transaction(transaction, config);

@@ -31,7 +31,8 @@ export class PgliteSession<TRelations extends AnyRelations> extends PgAsyncSessi
 	private cache: Cache;
 
 	constructor(
-		private client: PgliteClient | Transaction,
+		/** @internal */
+		readonly client: PgliteClient | Transaction,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: PgliteSessionOptions = {},
@@ -97,8 +98,16 @@ export class PgliteSession<TRelations extends AnyRelations> extends PgAsyncSessi
 
 export class PgliteTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<PgliteQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<PgliteQueryResultHKT, TRelations, Transaction> {
 	static override readonly [entityKind]: string = 'PgliteTransaction';
+
+	/** @internal */
+	declare session: PgliteSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: PgliteTransaction<TRelations>) => Promise<T>,

@@ -154,8 +154,13 @@ export class PostgresJsDsqlSession<TSQL extends Sql | TransactionSql, TRelations
 
 export class PostgresJsDsqlTransaction<
 	TRelations extends AnyRelations,
-> extends DsqlAsyncTransaction<PostgresJsDsqlQueryResultHKT, TRelations> {
+> extends DsqlAsyncTransaction<PostgresJsDsqlQueryResultHKT, TRelations, TransactionSql> {
 	static override readonly [entityKind]: string = 'PostgresJsDsqlTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): TransactionSql {
+		return this.session.client;
+	}
 
 	constructor(
 		dialect: PgDialect,

@@ -1,4 +1,4 @@
-import { type Config, connect, type Connection, type Statement } from '@tursodatabase/serverless';
+import { type Config, connect, type Connection, type Statement, type Transaction } from '@tursodatabase/serverless';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import type { AnyRelations, EmptyRelations } from '~/relations.ts';
@@ -12,7 +12,7 @@ import { TursoDatabaseServerlessSession } from './session.ts';
 export type TursoDatabaseServerlessRunResult = Awaited<ReturnType<Statement['run']>>;
 
 export class TursoDatabaseServerlessDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', TursoDatabaseServerlessRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', TursoDatabaseServerlessRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'TursoDatabaseServerlessDatabase';
 

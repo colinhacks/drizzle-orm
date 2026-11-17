@@ -35,7 +35,8 @@ export class OPSQLiteSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: DB,
+		/** @internal */
+		readonly client: DB,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: OPSQLiteSessionOptions = {},
@@ -105,9 +106,17 @@ export class OPSQLiteSession<TRelations extends AnyRelations>
 }
 
 export class OPSQLiteTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', OPSQLiteRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', OPSQLiteRunResult, TRelations, DB>
 {
 	static override readonly [entityKind]: string = 'OPSQLiteTransaction';
+
+	/** @internal */
+	declare session: OPSQLiteSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): DB {
+		return this.session.client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: OPSQLiteTransaction<TRelations>) => T | Promise<T>,

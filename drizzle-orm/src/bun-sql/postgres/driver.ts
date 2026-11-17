@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 
-import { SQL } from 'bun';
+import { type SavepointSQL, SQL, type TransactionSQL } from 'bun';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -14,7 +14,7 @@ import { BunSQLSession } from './session.ts';
 
 export class BunSQLDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<BunSQLQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<BunSQLQueryResultHKT, TRelations, TransactionSQL | SavepointSQL> {
 	static override readonly [entityKind]: string = 'BunSQLDatabase';
 }
 

@@ -105,7 +105,8 @@ export class SingleStoreDriverSession<
 	private rawTextTypeCast: TypeCastFunction;
 
 	constructor(
-		private client: SingleStoreDriverClient,
+		/** @internal */
+		readonly client: SingleStoreDriverClient,
 		dialect: SingleStoreDialect,
 		private relations: TRelations,
 		private options: SingleStoreDriverSessionOptions,
@@ -238,9 +239,18 @@ export class SingleStoreDriverTransaction<
 > extends SingleStoreTransaction<
 	SingleStoreDriverQueryResultHKT,
 	SingleStoreDriverPreparedQueryHKT,
-	TRelations
+	TRelations,
+	PoolConnection | Connection
 > {
 	static override readonly [entityKind]: string = 'SingleStoreDriverTransaction';
+
+	/** @internal */
+	declare session: SingleStoreDriverSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolConnection | Connection {
+		return this.session.client as PoolConnection | Connection;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: SingleStoreDriverTransaction<TRelations>) => Promise<T>,

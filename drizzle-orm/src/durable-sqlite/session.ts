@@ -37,7 +37,8 @@ export class SQLiteDOSession<TRelations extends AnyRelations> extends SQLiteAsyn
 	private logger: Logger;
 
 	constructor(
-		private client: DurableObjectStorage,
+		/** @internal */
+		readonly client: DurableObjectStorage,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: SQLiteDOSessionOptions = {},
@@ -112,9 +113,17 @@ export class SQLiteDOSession<TRelations extends AnyRelations> extends SQLiteAsyn
 }
 
 export class SQLiteDOTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'sync', DurableSQLiteRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'sync', DurableSQLiteRunResult, TRelations, DurableObjectStorage>
 {
 	static override readonly [entityKind]: string = 'SQLiteDOTransaction';
+
+	/** @internal */
+	declare session: SQLiteDOSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): DurableObjectStorage {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

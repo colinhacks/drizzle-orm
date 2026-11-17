@@ -39,6 +39,7 @@ import { MySqlAsyncUpdateBase, type MySqlAsyncUpdateHKT } from './update.ts';
 export class MySqlAsyncDatabase<
 	TQueryResult extends MySqlQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'MySqlDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -582,7 +583,7 @@ export class MySqlAsyncDatabase<
 
 	transaction<T>(
 		transaction: (
-			tx: MySqlAsyncTransaction<TQueryResult, TRelations>,
+			tx: MySqlAsyncTransaction<TQueryResult, TRelations, TTransactionClient>,
 			config?: MySqlTransactionConfig,
 		) => Promise<T>,
 		config?: MySqlTransactionConfig,

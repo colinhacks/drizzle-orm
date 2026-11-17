@@ -218,3 +218,16 @@ const skip = [
 	'all types ~json~ - upstash',
 ];
 tests(test, skip);
+
+test('tx.$client is the database client', () => {
+	const client = new DatabaseSync(':memory:');
+	const db = drizzle({ client });
+
+	db.transaction((tx) => {
+		expect(tx.$client).toBe(client);
+		tx.transaction((sp) => {
+			expect(sp.$client).toBe(client);
+		});
+	});
+	client.close();
+});

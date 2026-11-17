@@ -1,10 +1,12 @@
-import { createClient } from '@libsql/client';
+import { createClient, type Transaction } from '@libsql/client';
 import { sql } from 'drizzle-orm';
 import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
 import { migrate } from 'drizzle-orm/libsql/migrator';
 import { getTableConfig, int, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-import { expect } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { expect, expectTypeOf } from 'vitest';
 import { randomString } from '~/utils';
 import { allTypesData, allTypesInput, makeAllTypes } from './all-types';
 import { _push, libSQLTest as test } from './instrumentation';
@@ -252,3 +254,27 @@ cacheTests(test, skip);
 
 tests(test, skip, { rawIntegers: 'bigint' });
 libsqlConcatSubstringTest(test);
+
+test('tx.$client is the libsql transaction', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'drizzle-libsql-'));
+	const client = createClient({ url: `file:${join(dir, 'tx-client.db')}` });
+	const db = drizzle({ client });
+
+	try {
+		await db.run(sql`create table tx_client (id integer)`);
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<Transaction>();
+
+			await tx.run(sql`insert into tx_client values (1)`);
+			const { rows } = await tx.$client.execute('select id from tx_client');
+			expect(rows.map((row) => row['id'])).toEqual([1]);
+
+			await tx.transaction(async (sp) => {
+				expect(sp.$client).toBe(tx.$client);
+			});
+		});
+	} finally {
+		client.close();
+		rmSync(dir, { recursive: true });
+	}
+});

@@ -21,7 +21,7 @@ export class PostgresAuroraDialect extends PgDialect {
 
 export class PostgresAuroraDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<PostgresAuroraQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<PostgresAuroraQueryResultHKT, TRelations, PostgresAuroraClient> {
 	static override readonly [entityKind]: string = 'PostgresAuroraDatabase';
 }
 

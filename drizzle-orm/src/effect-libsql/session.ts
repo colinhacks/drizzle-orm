@@ -38,7 +38,8 @@ export class EffectLibsqlSession<TRelations extends AnyRelations>
 	static override readonly [entityKind]: string = 'EffectLibsqlSession';
 
 	constructor(
-		private client: LibsqlClient,
+		/** @internal */
+		readonly client: LibsqlClient,
 		dialect: SQLiteDialect,
 		protected relations: TRelations,
 		private options: EffectLibsqlSessionOptions,
@@ -105,9 +106,17 @@ export class EffectLibsqlSession<TRelations extends AnyRelations>
 }
 
 export class EffectLibsqlTransaction<TRelations extends AnyRelations>
-	extends SQLiteEffectTransaction<EffectLibsqlQueryEffectHKT, EffectLibsqlRunResult, TRelations>
+	extends SQLiteEffectTransaction<EffectLibsqlQueryEffectHKT, EffectLibsqlRunResult, TRelations, LibsqlClient>
 {
 	static override readonly [entityKind]: string = 'EffectLibsqlTransaction';
+
+	/** @internal */
+	declare session: EffectLibsqlSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): LibsqlClient {
+		return this.session.client;
+	}
 
 	override transaction<A, E, R>(
 		transaction: (

@@ -39,7 +39,8 @@ export class SQLiteD1Session<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: D1Database | D1DatabaseSession,
+		/** @internal */
+		readonly client: D1Database | D1DatabaseSession,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: SQLiteD1SessionOptions = {},
@@ -154,9 +155,17 @@ export class SQLiteD1Session<TRelations extends AnyRelations>
 }
 
 export class D1Transaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', D1RunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', D1RunResult, TRelations, D1Database | D1DatabaseSession>
 {
 	static override readonly [entityKind]: string = 'D1Transaction';
+
+	/** @internal */
+	declare session: SQLiteD1Session<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): D1Database | D1DatabaseSession {
+		return this.session.client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: D1Transaction<TRelations>) => Promise<T>,

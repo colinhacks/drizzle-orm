@@ -13,7 +13,7 @@ import { type EffectSQLiteDoQueryEffectHKT, type EffectSQLiteDoRunResult, Effect
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
 export class EffectSQLiteDoDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteEffectDatabase<EffectSQLiteDoQueryEffectHKT, EffectSQLiteDoRunResult, TRelations>
+	extends SQLiteEffectDatabase<EffectSQLiteDoQueryEffectHKT, EffectSQLiteDoRunResult, TRelations, SqliteClient>
 {
 	static override readonly [entityKind]: string = 'EffectSQLiteDoDatabase';
 }

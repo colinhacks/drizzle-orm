@@ -7,6 +7,7 @@ import type { DsqlAsyncSession, DsqlAsyncTransaction, DsqlTransactionConfig } fr
 export class DsqlAsyncDatabase<
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > extends BasePgAsyncDatabase<TQueryResult, TRelations> {
 	static override readonly [entityKind]: string = 'DsqlAsyncDatabase';
 
@@ -19,7 +20,7 @@ export class DsqlAsyncDatabase<
 	};
 
 	transaction<T>(
-		transaction: (tx: DsqlAsyncTransaction<TQueryResult, TRelations>) => Promise<T>,
+		transaction: (tx: DsqlAsyncTransaction<TQueryResult, TRelations, TTransactionClient>) => Promise<T>,
 		config?: DsqlTransactionConfig,
 	): Promise<T> {
 		return this.session.transaction(transaction, config);

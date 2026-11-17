@@ -1,5 +1,5 @@
 import type { Connection as CallbackConnection, Pool as CallbackPool } from 'mysql2';
-import { type Connection, createPool, type Pool, type PoolOptions } from 'mysql2/promise';
+import { type Connection, createPool, type Pool, type PoolConnection, type PoolOptions } from 'mysql2/promise';
 import type { Cache } from '~/cache/core/index.ts';
 import { entityKind } from '~/entity.ts';
 import type { Logger } from '~/logger.ts';
@@ -22,7 +22,7 @@ export { MySqlAsyncDatabase as MySqlDatabase } from '~/mysql-core/async/db.ts';
 
 export class MySql2Database<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MySqlAsyncDatabase<MySql2QueryResultHKT, TRelations> {
+> extends MySqlAsyncDatabase<MySql2QueryResultHKT, TRelations, PoolConnection | Connection> {
 	static override readonly [entityKind]: string = 'MySql2Database';
 }
 function construct<

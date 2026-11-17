@@ -16,7 +16,7 @@ import { type EffectMysql2QueryEffectHKT, type EffectMysql2QueryResultHKT, Effec
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
 export class EffectMysql2Database<TRelations extends AnyRelations = EmptyRelations>
-	extends MySqlEffectDatabase<EffectMysql2QueryEffectHKT, EffectMysql2QueryResultHKT, TRelations>
+	extends MySqlEffectDatabase<EffectMysql2QueryEffectHKT, EffectMysql2QueryResultHKT, TRelations, MysqlClient>
 {
 	static override readonly [entityKind]: string = 'EffectMysql2Database';
 }

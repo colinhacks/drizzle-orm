@@ -13,7 +13,7 @@ import { type SQLiteBunRunResult, SQLiteBunSession } from './session.ts';
 
 export class SQLiteBunDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends SQLiteAsyncDatabase<'sync', SQLiteBunRunResult, TRelations> {
+> extends SQLiteAsyncDatabase<'sync', SQLiteBunRunResult, TRelations, Database> {
 	static override readonly [entityKind]: string = 'SQLiteBunDatabase';
 }
 

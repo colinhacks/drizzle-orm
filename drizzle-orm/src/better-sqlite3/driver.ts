@@ -19,7 +19,7 @@ export type DrizzleBetterSQLite3DatabaseConfig =
 	| undefined;
 
 export class BetterSQLite3Database<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'sync', BetterSQLite3RunResult, TRelations>
+	extends SQLiteAsyncDatabase<'sync', BetterSQLite3RunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'BetterSQLite3Database';
 }

@@ -48,7 +48,8 @@ export class PlanetscaleSession<TRelations extends AnyRelations> extends MySqlAs
 	static override readonly [entityKind]: string = 'PlanetscaleSession';
 
 	private logger: Logger;
-	private client: Client | Transaction | Connection;
+	/** @internal */
+	client: Client | Transaction | Connection;
 	private cache: Cache;
 	private rawTextCast: Cast;
 
@@ -130,9 +131,18 @@ export class PlanetScaleTransaction<
 	TRelations extends AnyRelations,
 > extends MySqlAsyncTransaction<
 	PlanetscaleQueryResultHKT,
-	TRelations
+	TRelations,
+	Transaction
 > {
 	static override readonly [entityKind]: string = 'PlanetScaleTransaction';
+
+	/** @internal */
+	declare session: PlanetscaleSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as Transaction;
+	}
 
 	constructor(
 		dialect: MySqlDialect,

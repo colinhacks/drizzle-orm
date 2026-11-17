@@ -277,8 +277,14 @@ export abstract class SQLiteEffectTransaction<
 	TEffectHKT extends QueryEffectHKTBase,
 	TRunResult,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends SQLiteEffectDatabase<TEffectHKT, TRunResult, TRelations> {
+	TTransactionClient = any,
+> extends SQLiteEffectDatabase<TEffectHKT, TRunResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'SQLiteEffectTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: SQLiteDialect,

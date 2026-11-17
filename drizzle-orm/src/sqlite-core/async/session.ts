@@ -349,8 +349,14 @@ export abstract class SQLiteAsyncTransaction<
 	TResultType extends 'sync' | 'async',
 	TRunResult,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends SQLiteAsyncDatabase<TResultType, TRunResult, TRelations> {
+	TTransactionClient = any,
+> extends SQLiteAsyncDatabase<TResultType, TRunResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'SQLiteAsyncTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		resultType: TResultType,

@@ -41,7 +41,8 @@ export class NodeCockroachSession<
 	private logger: Logger;
 
 	constructor(
-		private client: NodeCockroachClient,
+		/** @internal */
+		readonly client: NodeCockroachClient,
 		dialect: CockroachDialect,
 		private relations: TRelations,
 		private options: NodeCockroachSessionOptions = {},
@@ -134,8 +135,16 @@ export class NodeCockroachSession<
 
 export class NodeCockroachTransaction<
 	TRelations extends AnyRelations,
-> extends CockroachTransaction<NodeCockroachQueryResultHKT, TRelations> {
+> extends CockroachTransaction<NodeCockroachQueryResultHKT, TRelations, PoolClient | Client> {
 	static override readonly [entityKind]: string = 'NodeCockroachTransaction';
+
+	/** @internal */
+	declare session: NodeCockroachSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolClient | Client {
+		return this.session.client as PoolClient | Client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: NodeCockroachTransaction<TRelations>) => Promise<T>,

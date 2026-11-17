@@ -35,6 +35,7 @@ export class MsSqlDatabase<
 	TQueryResult extends QueryResultHKT,
 	TPreparedQueryHKT extends PreparedQueryHKTBase,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'MsSqlDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -445,7 +446,7 @@ export class MsSqlDatabase<
 
 	transaction<T>(
 		transaction: (
-			tx: MsSqlTransaction<TQueryResult, TPreparedQueryHKT, TRelations>,
+			tx: MsSqlTransaction<TQueryResult, TPreparedQueryHKT, TRelations, TTransactionClient>,
 			config?: MsSqlTransactionConfig,
 		) => Promise<T>,
 		config?: MsSqlTransactionConfig,

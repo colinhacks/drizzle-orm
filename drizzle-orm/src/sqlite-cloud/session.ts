@@ -35,7 +35,8 @@ export class SQLiteCloudSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: Database,
+		/** @internal */
+		readonly client: Database,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: SQLiteCloudSessionOptions,
@@ -152,9 +153,17 @@ export class SQLiteCloudSession<TRelations extends AnyRelations>
 }
 
 export class SQLiteCloudTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', SQLiteCloudRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', SQLiteCloudRunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'SQLiteCloudTransaction';
+
+	/** @internal */
+	declare session: SQLiteCloudSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Database {
+		return this.session.client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: SQLiteCloudTransaction<TRelations>) => Promise<T>,

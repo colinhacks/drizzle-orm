@@ -34,6 +34,7 @@ export class SQLiteAsyncDatabase<
 	TResultKind extends 'sync' | 'async',
 	TRunResult,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'BaseSQLiteDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -671,7 +672,7 @@ export class SQLiteAsyncDatabase<
 
 	transaction<T>(
 		transaction: (
-			tx: SQLiteAsyncTransaction<TResultKind, TRunResult, TRelations>,
+			tx: SQLiteAsyncTransaction<TResultKind, TRunResult, TRelations, TTransactionClient>,
 		) => TResultKind extends 'sync'
 			? T extends Promise<any> ? DrizzleTypeError<"Sync drivers can't use async functions in transactions!"> : T
 			: Result<TResultKind, T>,
@@ -679,7 +680,7 @@ export class SQLiteAsyncDatabase<
 	): Result<TResultKind, T> {
 		return this.session.transaction(
 			transaction as (
-				tx: SQLiteAsyncTransaction<TResultKind, TRunResult, TRelations>,
+				tx: SQLiteAsyncTransaction<TResultKind, TRunResult, TRelations, TTransactionClient>,
 			) => Result<TResultKind, T>,
 			config,
 		);

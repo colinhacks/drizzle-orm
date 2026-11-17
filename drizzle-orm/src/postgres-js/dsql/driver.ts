@@ -1,5 +1,5 @@
 import { type AuroraDSQLConfig, auroraDSQLPostgres } from '@aws/aurora-dsql-postgresjs-connector';
-import type { PostgresType, Sql } from 'postgres';
+import type { PostgresType, Sql, TransactionSql } from 'postgres';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { DsqlAsyncDatabase } from '~/pg-core/async/dsql/db.ts';
@@ -17,7 +17,7 @@ import type {
 import { PostgresJsDsqlSession } from './session.ts';
 
 export class PostgresJsDsqlDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends DsqlAsyncDatabase<PostgresJsDsqlQueryResultHKT, TRelations>
+	extends DsqlAsyncDatabase<PostgresJsDsqlQueryResultHKT, TRelations, TransactionSql>
 {
 	static override readonly [entityKind]: string = 'PostgresJsDsqlDatabase';
 

@@ -1,4 +1,9 @@
-import { AuroraDSQLPool, type AuroraDSQLPoolConfig } from '@aws/aurora-dsql-node-postgres-connector';
+import {
+	type AuroraDSQLClient,
+	AuroraDSQLPool,
+	type AuroraDSQLPoolConfig,
+} from '@aws/aurora-dsql-node-postgres-connector';
+import type { PoolClient } from 'pg';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { DsqlAsyncDatabase } from '~/pg-core/async/dsql/db.ts';
@@ -17,7 +22,7 @@ import { NodePgDsqlSession } from './session.ts';
 
 export class NodePgDsqlDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends DsqlAsyncDatabase<NodePgDsqlQueryResultHKT, TRelations> {
+> extends DsqlAsyncDatabase<NodePgDsqlQueryResultHKT, TRelations, AuroraDSQLClient | PoolClient> {
 	static override readonly [entityKind]: string = 'NodePgDsqlDatabase';
 
 	override transaction<T>(

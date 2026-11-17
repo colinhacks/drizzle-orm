@@ -39,7 +39,8 @@ export class SQLiteBunSession<TRelations extends AnyRelations>
 	private logger: Logger;
 
 	constructor(
-		private client: Database,
+		/** @internal */
+		readonly client: Database,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: SQLiteBunSessionOptions = {},
@@ -118,8 +119,16 @@ export class SQLiteBunSession<TRelations extends AnyRelations>
 
 export class SQLiteBunTransaction<
 	TRelations extends AnyRelations,
-> extends SQLiteAsyncTransaction<'sync', SQLiteBunRunResult, TRelations> {
+> extends SQLiteAsyncTransaction<'sync', SQLiteBunRunResult, TRelations, Database> {
 	static override readonly [entityKind]: string = 'SQLiteBunTransaction';
+
+	/** @internal */
+	declare session: SQLiteBunSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Database {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

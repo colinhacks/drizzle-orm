@@ -116,8 +116,16 @@ export class BunSQLiteSession<
 
 export class BunSQLiteTransaction<
 	TRelations extends AnyRelations,
-> extends SQLiteAsyncTransaction<'async', BunSQLiteRunResult, TRelations> {
+> extends SQLiteAsyncTransaction<'async', BunSQLiteRunResult, TRelations, TransactionSQL | SavepointSQL> {
 	static override readonly [entityKind]: string = 'BunSQLiteTransaction';
+
+	/** @internal */
+	declare session: BunSQLiteSession<TransactionSQL | SavepointSQL, TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): TransactionSQL | SavepointSQL {
+		return this.session.client as TransactionSQL | SavepointSQL;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: BunSQLiteTransaction<TRelations>) => Promise<T>,

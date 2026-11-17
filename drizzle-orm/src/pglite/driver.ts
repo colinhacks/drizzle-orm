@@ -1,4 +1,4 @@
-import { PGlite, type PGliteOptions } from '@electric-sql/pglite';
+import { PGlite, type PGliteOptions, type Transaction } from '@electric-sql/pglite';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -12,7 +12,7 @@ import { PgliteSession } from './session.ts';
 
 export class PgliteDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<PgliteQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<PgliteQueryResultHKT, TRelations, Transaction> {
 	static override readonly [entityKind]: string = 'PgliteDatabase';
 }
 

@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 
-import { SQL } from 'bun';
+import { type ReservedSQL, SQL } from 'bun';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { MySqlAsyncDatabase } from '~/mysql-core/async/db.ts';
@@ -14,7 +14,7 @@ import { BunMySqlSession } from './session.ts';
 
 export class BunMySqlDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MySqlAsyncDatabase<BunMySqlQueryResultHKT, TRelations> {
+> extends MySqlAsyncDatabase<BunMySqlQueryResultHKT, TRelations, ReservedSQL> {
 	static override readonly [entityKind]: string = 'BunMySqlDatabase';
 }
 

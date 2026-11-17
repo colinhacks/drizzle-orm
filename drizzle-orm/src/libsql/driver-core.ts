@@ -1,4 +1,4 @@
-import type { Client } from '@libsql/client';
+import type { Client, Transaction } from '@libsql/client';
 import type { BatchItem, BatchResponse } from '~/batch.ts';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
@@ -11,7 +11,7 @@ import { libsqlCodecs } from './codecs.ts';
 import { type LibSQLRunResult, LibSQLSession } from './session.ts';
 
 export class LibSQLDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', LibSQLRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', LibSQLRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'LibSQLDatabase';
 

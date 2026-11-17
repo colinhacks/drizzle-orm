@@ -78,8 +78,8 @@ export class NodePgDsqlSession<
 	private cache: Cache;
 
 	constructor(
-		/** `PoolClient` only comes from the pool's own `transaction()`, never from drizzle constructor */
-		private client: NodePgDsqlClient | PoolClient,
+		/** @internal `PoolClient` only comes from the pool's own `transaction()`, never from drizzle constructor */
+		public client: NodePgDsqlClient | PoolClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: NodePgDsqlSessionOptions = {},
@@ -154,8 +154,13 @@ export class NodePgDsqlSession<
 
 export class NodePgDsqlTransaction<
 	TRelations extends AnyRelations,
-> extends DsqlAsyncTransaction<NodePgDsqlQueryResultHKT, TRelations> {
+> extends DsqlAsyncTransaction<NodePgDsqlQueryResultHKT, TRelations, AuroraDSQLClient | PoolClient> {
 	static override readonly [entityKind]: string = 'NodePgDsqlTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): AuroraDSQLClient | PoolClient {
+		return (<NodePgDsqlSession<TRelations>> this.session).client as AuroraDSQLClient | PoolClient;
+	}
 }
 
 export type NodePgDsqlRawExecuteResult = QueryResult<Record<string, unknown>> | QueryResult<Record<string, unknown>>[];

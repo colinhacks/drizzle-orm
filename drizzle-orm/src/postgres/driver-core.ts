@@ -1,4 +1,4 @@
-import type { Pool } from '#postgres';
+import type { Connection, Pool } from '#postgres';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -29,7 +29,7 @@ import { createShapeGenerator } from './shape.ts';
 
 export class PostgresDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<PostgresQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<PostgresQueryResultHKT, TRelations, Connection> {
 	static override readonly [entityKind]: string = 'PostgresDatabase';
 
 	/** @internal */

@@ -1,5 +1,5 @@
 import { type Connection as CallbackConnection, createPool, type Pool as CallbackPool, type PoolOptions } from 'mysql2';
-import type { Connection, Pool } from 'mysql2/promise';
+import type { Connection, Pool, PoolConnection } from 'mysql2/promise';
 import type { Cache } from '~/cache/core/cache.ts';
 import { entityKind, is } from '~/entity.ts';
 import type { Logger } from '~/logger.ts';
@@ -52,7 +52,12 @@ export { SingleStoreDatabase } from '~/singlestore-core/db.ts';
 
 export class SingleStoreDriverDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends SingleStoreDatabase<SingleStoreDriverQueryResultHKT, SingleStoreDriverPreparedQueryHKT, TRelations> {
+> extends SingleStoreDatabase<
+	SingleStoreDriverQueryResultHKT,
+	SingleStoreDriverPreparedQueryHKT,
+	TRelations,
+	PoolConnection | Connection
+> {
 	static override readonly [entityKind]: string = 'SingleStoreDriverDatabase';
 }
 

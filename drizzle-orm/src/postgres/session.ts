@@ -172,7 +172,8 @@ export class PostgresSession<
 	private cache: Cache;
 
 	constructor(
-		private client: PostgresClient,
+		/** @internal */
+		readonly client: PostgresClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: PostgresSessionOptions = {},
@@ -656,11 +657,16 @@ export function buildBulkUpdate(
 
 export class PostgresTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<PostgresQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<PostgresQueryResultHKT, TRelations, Connection> {
 	static override readonly [entityKind]: string = 'PostgresTransaction';
 
 	/** @internal */
 	declare session: PostgresSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Connection {
+		return this.session.client as Connection;
+	}
 
 	/**
 	 * Inserts rows in bulk via driver-side `unnest`, filling `$defaultFn` / `$onUpdateFn` like `tx.insert(...)`

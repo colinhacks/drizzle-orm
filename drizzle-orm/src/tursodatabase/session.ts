@@ -140,11 +140,16 @@ export class TursoDatabaseSession<TRelations extends AnyRelations>
 }
 
 export class TursoDatabaseTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', TursoDatabaseRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', TursoDatabaseRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'TursoDatabaseTransaction';
 
 	declare readonly session: TursoDatabaseSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: TursoDatabaseTransaction<TRelations>) => Promise<T>,

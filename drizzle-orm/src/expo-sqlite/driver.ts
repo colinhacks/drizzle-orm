@@ -10,7 +10,7 @@ import { expoSQLiteCodecs } from './codecs.ts';
 import { type ExpoSQLiteRunResult, ExpoSQLiteSession } from './session.ts';
 
 export class ExpoSQLiteDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'sync', ExpoSQLiteRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'sync', ExpoSQLiteRunResult, TRelations, SQLiteDatabase>
 {
 	static override readonly [entityKind]: string = 'ExpoSQLiteDatabase';
 }

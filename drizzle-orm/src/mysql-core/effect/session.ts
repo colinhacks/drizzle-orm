@@ -195,8 +195,14 @@ export abstract class MySqlEffectTransaction<
 	TEffectHKT extends QueryEffectHKTBase,
 	TQueryResult extends MySqlQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MySqlEffectDatabase<TEffectHKT, TQueryResult, TRelations> {
+	TTransactionClient = any,
+> extends MySqlEffectDatabase<TEffectHKT, TQueryResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'MySqlEffectTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: MySqlDialect,
@@ -214,7 +220,7 @@ export abstract class MySqlEffectTransaction<
 	/** Nested transactions (aka savepoints) only work with InnoDB engine. */
 	abstract override transaction<A, E, R>(
 		transaction: (
-			tx: MySqlEffectTransaction<TEffectHKT, TQueryResult, TRelations>,
+			tx: MySqlEffectTransaction<TEffectHKT, TQueryResult, TRelations, TTransactionClient>,
 		) => Effect.Effect<A, E, R>,
 	): Effect.Effect<A, E | SqlError, R>;
 }

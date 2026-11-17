@@ -18,7 +18,7 @@ export type EffectDrizzleSQLiteD1Config<TRelations extends AnyRelations> = Omit<
 >;
 
 export class EffectSQLiteD1Database<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteEffectDatabase<EffectSQLiteD1QueryEffectHKT, EffectSQLiteD1RunResult, TRelations>
+	extends SQLiteEffectDatabase<EffectSQLiteD1QueryEffectHKT, EffectSQLiteD1RunResult, TRelations, D1Client>
 {
 	static override readonly [entityKind]: string = 'EffectSQLiteD1Database';
 }

@@ -44,7 +44,7 @@ export { MsSqlDatabase } from '~/mssql-core/db.ts';
 
 export type NodeMsSqlDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> = MsSqlDatabase<NodeMsSqlQueryResultHKT, NodeMsSqlPreparedQueryHKT, TRelations>;
+> = MsSqlDatabase<NodeMsSqlQueryResultHKT, NodeMsSqlPreparedQueryHKT, TRelations, mssql.Transaction>;
 
 function construct<
 	TRelations extends AnyRelations = EmptyRelations,

@@ -34,7 +34,8 @@ export class BetterSQLiteSession<TRelations extends AnyRelations>
 	private logger: Logger;
 
 	constructor(
-		private client: Database,
+		/** @internal */
+		readonly client: Database,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: BetterSQLiteSessionOptions = {},
@@ -104,9 +105,17 @@ export class BetterSQLiteSession<TRelations extends AnyRelations>
 }
 
 export class BetterSQLiteTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'sync', BetterSQLite3RunResult, TRelations>
+	extends SQLiteAsyncTransaction<'sync', BetterSQLite3RunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'BetterSQLiteTransaction';
+
+	/** @internal */
+	declare session: BetterSQLiteSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Database {
+		return this.session.client;
+	}
 
 	override transaction<T>(
 		transaction: (

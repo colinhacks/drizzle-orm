@@ -14,7 +14,7 @@ import { type EffectPgQueryEffectHKT, type EffectPgQueryResultHKT, EffectPgSessi
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
 export class EffectPgDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends PgEffectDatabase<EffectPgQueryEffectHKT, EffectPgQueryResultHKT, TRelations>
+	extends PgEffectDatabase<EffectPgQueryEffectHKT, EffectPgQueryResultHKT, TRelations, PgliteClient>
 {
 	static override readonly [entityKind]: string = 'EffectPgDatabase';
 }

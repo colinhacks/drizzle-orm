@@ -37,7 +37,8 @@ export class EffectPgSession<
 	static override readonly [entityKind]: string = 'EffectPgSession';
 
 	constructor(
-		private client: PgliteClient,
+		/** @internal */
+		readonly client: PgliteClient,
 		dialect: PgDialect,
 		protected relations: TRelations,
 		private options: EffectPgSessionOptions,
@@ -103,8 +104,16 @@ export class EffectPgSession<
 export class EffectPgTransaction<
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations,
-> extends PgEffectTransaction<EffectPgQueryEffectHKT, TQueryResult, TRelations> {
+> extends PgEffectTransaction<EffectPgQueryEffectHKT, TQueryResult, TRelations, PgliteClient> {
 	static override readonly [entityKind]: string = 'EffectPgTransaction';
+
+	/** @internal */
+	declare session: EffectPgSession<TQueryResult, TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PgliteClient {
+		return this.session.client;
+	}
 
 	override transaction<A, E, R>(
 		transaction: (

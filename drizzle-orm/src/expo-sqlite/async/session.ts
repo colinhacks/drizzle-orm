@@ -35,7 +35,8 @@ export class ExpoSQLiteAsyncSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: SQLiteDatabase,
+		/** @internal */
+		readonly client: SQLiteDatabase,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: ExpoSQLiteAsyncSessionOptions = {},
@@ -116,8 +117,16 @@ export class ExpoSQLiteAsyncSession<TRelations extends AnyRelations>
 
 export class ExpoSQLiteAsyncTransaction<
 	TRelations extends AnyRelations,
-> extends SQLiteAsyncTransaction<'async', ExpoSQLiteAsyncRunResult, TRelations> {
+> extends SQLiteAsyncTransaction<'async', ExpoSQLiteAsyncRunResult, TRelations, SQLiteDatabase> {
 	static override readonly [entityKind]: string = 'ExpoSQLiteAsyncTransaction';
+
+	/** @internal */
+	declare session: ExpoSQLiteAsyncSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): SQLiteDatabase {
+		return this.session.client;
+	}
 
 	override async transaction<T>(transaction: (tx: ExpoSQLiteAsyncTransaction<TRelations>) => Promise<T>): Promise<T> {
 		const savepointName = `sp${this.nestedIndex}`;

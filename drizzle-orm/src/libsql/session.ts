@@ -51,11 +51,13 @@ export class LibSQLSession<TRelations extends AnyRelations> extends SQLiteAsyncS
 	private cache: Cache;
 
 	constructor(
-		private client: Client,
+		/** @internal */
+		readonly client: Client,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: LibSQLSessionOptions,
-		private tx: Transaction | undefined,
+		/** @internal */
+		readonly tx: Transaction | undefined,
 	) {
 		super(dialect, 'async');
 		this.logger = options.logger ?? new NoopLogger();
@@ -181,9 +183,17 @@ export class LibSQLSession<TRelations extends AnyRelations> extends SQLiteAsyncS
 }
 
 export class LibSQLTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', LibSQLRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', LibSQLRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'LibSQLTransaction';
+
+	/** @internal */
+	declare session: LibSQLSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.tx as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: LibSQLTransaction<TRelations>) => Promise<T>,

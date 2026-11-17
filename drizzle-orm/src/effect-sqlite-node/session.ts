@@ -39,7 +39,8 @@ export class EffectSQLiteNodeSession<TRelations extends AnyRelations>
 	static override readonly [entityKind]: string = 'EffectSQLiteNodeSession';
 
 	constructor(
-		private client: SqliteClient,
+		/** @internal */
+		readonly client: SqliteClient,
 		dialect: SQLiteDialect,
 		protected relations: TRelations,
 		private options: EffectSQLiteNodeSessionOptions,
@@ -117,9 +118,17 @@ export class EffectSQLiteNodeSession<TRelations extends AnyRelations>
 }
 
 export class EffectSQLiteNodeTransaction<TRelations extends AnyRelations>
-	extends SQLiteEffectTransaction<EffectSQLiteNodeQueryEffectHKT, EffectSQLiteNodeRunResult, TRelations>
+	extends SQLiteEffectTransaction<EffectSQLiteNodeQueryEffectHKT, EffectSQLiteNodeRunResult, TRelations, SqliteClient>
 {
 	static override readonly [entityKind]: string = 'EffectSQLiteNodeTransaction';
+
+	/** @internal */
+	declare session: EffectSQLiteNodeSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): SqliteClient {
+		return this.session.client;
+	}
 
 	override transaction<A, E, R>(
 		transaction: (

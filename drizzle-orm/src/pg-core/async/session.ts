@@ -259,8 +259,14 @@ export abstract class PgAsyncSession<
 export abstract class PgAsyncTransaction<
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<TQueryResult, TRelations> {
+	TTransactionClient = any,
+> extends PgAsyncDatabase<TQueryResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'PgAsyncTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: PgDialect,
@@ -313,7 +319,7 @@ export abstract class PgAsyncTransaction<
 	}
 
 	abstract override transaction<T>(
-		transaction: (tx: PgAsyncTransaction<TQueryResult, TRelations>) => Promise<T>,
+		transaction: (tx: PgAsyncTransaction<TQueryResult, TRelations, TTransactionClient>) => Promise<T>,
 	): Promise<T>;
 }
 

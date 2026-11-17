@@ -1,4 +1,4 @@
-import pg, { type Pool, type PoolConfig } from 'pg';
+import pg, { type Client, type Pool, type PoolClient, type PoolConfig } from 'pg';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -12,7 +12,7 @@ import { NodePgSession } from './session.ts';
 
 export class NodePgDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<NodePgQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<NodePgQueryResultHKT, TRelations, PoolClient | Client> {
 	static override readonly [entityKind]: string = 'NodePgDatabase';
 }
 

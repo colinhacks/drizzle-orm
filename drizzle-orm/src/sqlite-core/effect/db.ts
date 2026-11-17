@@ -35,6 +35,7 @@ export class SQLiteEffectDatabase<
 	TEffectHKT extends QueryEffectHKTBase,
 	TRunResult,
 	TRelations extends AnyRelations = EmptyRelations,
+	TTransactionClient = any,
 > {
 	static readonly [entityKind]: string = 'SQLiteEffectDatabase';
 	static [Symbol.hasInstance](value: unknown): boolean {
@@ -670,7 +671,7 @@ export class SQLiteEffectDatabase<
 
 	transaction<A, E, R>(
 		transaction: (
-			tx: SQLiteEffectTransaction<TEffectHKT, TRunResult, TRelations>,
+			tx: SQLiteEffectTransaction<TEffectHKT, TRunResult, TRelations, TTransactionClient>,
 		) => Effect.Effect<A, E, R>,
 	): Effect.Effect<A, E | SqlError, R> {
 		return this.session.transaction(transaction);

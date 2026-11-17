@@ -198,8 +198,14 @@ export abstract class PgEffectTransaction<
 	TEffectHKT extends QueryEffectHKTBase,
 	TQueryResult extends PgQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgEffectDatabase<TEffectHKT, TQueryResult, TRelations> {
+	TTransactionClient = any,
+> extends PgEffectDatabase<TEffectHKT, TQueryResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'PgEffectTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: PgDialect,
@@ -271,7 +277,7 @@ export abstract class PgEffectTransaction<
 
 	abstract override transaction<A, E, R>(
 		transaction: (
-			tx: PgEffectTransaction<TEffectHKT, TQueryResult, TRelations>,
+			tx: PgEffectTransaction<TEffectHKT, TQueryResult, TRelations, TTransactionClient>,
 		) => Effect.Effect<A, E, R>,
 	): Effect.Effect<A, E | SqlError, R>;
 }

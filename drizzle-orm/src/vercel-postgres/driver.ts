@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { sql, type VercelClient, type VercelPoolClient } from '@vercel/postgres';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
 import { PgAsyncDatabase } from '~/pg-core/async/db.ts';
@@ -10,7 +10,7 @@ import { vercelPgCodecs } from './codecs.ts';
 import { type VercelPgClient, type VercelPgQueryResultHKT, VercelPgSession } from './session.ts';
 
 export class VercelPgDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends PgAsyncDatabase<VercelPgQueryResultHKT, TRelations>
+	extends PgAsyncDatabase<VercelPgQueryResultHKT, TRelations, VercelPoolClient | VercelClient>
 {
 	static override readonly [entityKind]: string = 'VercelPgDatabase';
 }

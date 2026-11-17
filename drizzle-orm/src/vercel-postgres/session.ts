@@ -46,7 +46,8 @@ export class VercelPgSession<
 	private cache: Cache;
 
 	constructor(
-		private client: VercelPgClient,
+		/** @internal */
+		readonly client: VercelPgClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: VercelPgSessionOptions = {},
@@ -154,8 +155,16 @@ export class VercelPgSession<
 
 export class VercelPgTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<VercelPgQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<VercelPgQueryResultHKT, TRelations, VercelPoolClient | VercelClient> {
 	static override readonly [entityKind]: string = 'VercelPgTransaction';
+
+	/** @internal */
+	declare session: VercelPgSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): VercelPoolClient | VercelClient {
+		return this.session.client as VercelPoolClient | VercelClient;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: VercelPgTransaction<TRelations>) => Promise<T>,

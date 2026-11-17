@@ -10,7 +10,7 @@ import { opSQLiteCodecs } from './codecs.ts';
 import { type OPSQLiteRunResult, OPSQLiteSession } from './session.ts';
 
 export class OPSQLiteDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', OPSQLiteRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', OPSQLiteRunResult, TRelations, DB>
 {
 	static override readonly [entityKind]: string = 'OPSQLiteDatabase';
 }

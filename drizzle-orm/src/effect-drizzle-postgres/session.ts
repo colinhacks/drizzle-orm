@@ -82,7 +82,8 @@ export class EffectPostgresSession<
 	static override readonly [entityKind]: string = 'EffectPostgresSession';
 
 	constructor(
-		private client: Client.DrizzlePostgresClient,
+		/** @internal */
+		readonly client: Client.DrizzlePostgresClient,
 		dialect: PgDialect,
 		protected relations: TRelations,
 		private options: EffectPostgresSessionOptions,
@@ -228,8 +229,21 @@ export class EffectPostgresSession<
 
 export class EffectPostgresTransaction<
 	TRelations extends AnyRelations,
-> extends PgEffectTransaction<EffectPostgresQueryEffectHKT, EffectPostgresQueryResultHKT, TRelations> {
+> extends PgEffectTransaction<
+	EffectPostgresQueryEffectHKT,
+	EffectPostgresQueryResultHKT,
+	TRelations,
+	Client.DrizzlePostgresClient
+> {
 	static override readonly [entityKind]: string = 'EffectPostgresTransaction';
+
+	/** @internal */
+	declare session: EffectPostgresSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Client.DrizzlePostgresClient {
+		return this.session.client;
+	}
 
 	override transaction<A, E, R>(
 		transaction: (

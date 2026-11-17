@@ -235,8 +235,14 @@ export abstract class MySqlAsyncSession<
 export abstract class MySqlAsyncTransaction<
 	TQueryResult extends MySqlQueryResultHKT,
 	TRelations extends AnyRelations = EmptyRelations,
-> extends MySqlAsyncDatabase<TQueryResult, TRelations> {
+	TTransactionClient = any,
+> extends MySqlAsyncDatabase<TQueryResult, TRelations, TTransactionClient> {
 	static override readonly [entityKind]: string = 'MySqlAsyncTransaction';
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	get $client(): TTransactionClient {
+		return undefined as TTransactionClient;
+	}
 
 	constructor(
 		dialect: MySqlDialect,
@@ -254,7 +260,7 @@ export abstract class MySqlAsyncTransaction<
 	/** Nested transactions (aka savepoints) only work with InnoDB engine. */
 	abstract override transaction<T>(
 		transaction: (
-			tx: MySqlAsyncTransaction<TQueryResult, TRelations>,
+			tx: MySqlAsyncTransaction<TQueryResult, TRelations, TTransactionClient>,
 		) => Promise<T>,
 	): Promise<T>;
 }

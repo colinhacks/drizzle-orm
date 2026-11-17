@@ -20,7 +20,7 @@ export type AnyD1Database = IfNotImported<
 >;
 
 export class DrizzleD1Database<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', D1RunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', D1RunResult, TRelations, D1Database | D1DatabaseSession>
 {
 	static override readonly [entityKind]: string = 'D1Database';
 

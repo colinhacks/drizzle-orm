@@ -22,9 +22,12 @@ import {
 } from './session.ts';
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
-export class EffectPostgresDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends PgEffectDatabase<EffectPostgresQueryEffectHKT, EffectPostgresQueryResultHKT, TRelations>
-{
+export class EffectPostgresDatabase<TRelations extends AnyRelations = EmptyRelations> extends PgEffectDatabase<
+	EffectPostgresQueryEffectHKT,
+	EffectPostgresQueryResultHKT,
+	TRelations,
+	Client.DrizzlePostgresClient
+> {
 	static override readonly [entityKind]: string = 'EffectPostgresDatabase';
 
 	/** @internal */

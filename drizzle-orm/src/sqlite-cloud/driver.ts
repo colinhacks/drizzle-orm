@@ -12,7 +12,7 @@ import { SQLiteCloudSession } from './session.ts';
 export type SQLiteCloudRunResult = unknown;
 
 export class SQLiteCloudDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', SQLiteCloudRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', SQLiteCloudRunResult, TRelations, Database>
 {
 	static override readonly [entityKind]: string = 'SQLiteCloudDatabase';
 

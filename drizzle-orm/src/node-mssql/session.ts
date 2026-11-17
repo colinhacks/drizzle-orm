@@ -1,4 +1,4 @@
-import type { ConnectionPool, IResult, Request } from 'mssql';
+import type { ConnectionPool, IResult, Request, Transaction } from 'mssql';
 import mssql from 'mssql';
 import { entityKind, is } from '~/entity.ts';
 import type { Logger } from '~/logger.ts';
@@ -41,7 +41,8 @@ export class NodeMsSqlSession<
 	private logger: Logger;
 
 	constructor(
-		private client: NodeMsSqlClient,
+		/** @internal */
+		readonly client: NodeMsSqlClient,
 		dialect: MsSqlDialect,
 		private relations: TRelations,
 		private options: NodeMsSqlSessionOptions,
@@ -154,9 +155,18 @@ export class NodeMsSqlTransaction<
 > extends MsSqlTransaction<
 	NodeMsSqlQueryResultHKT,
 	NodeMsSqlPreparedQueryHKT,
-	TRelations
+	TRelations,
+	Transaction
 > {
 	static override readonly [entityKind]: string = 'NodeMsSqlTransaction';
+
+	/** @internal */
+	declare session: NodeMsSqlSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as unknown as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: NodeMsSqlTransaction<TRelations>) => Promise<T>,

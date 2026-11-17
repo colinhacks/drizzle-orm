@@ -18,7 +18,7 @@ import {
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
 export class EffectSQLiteWasmDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteEffectDatabase<EffectSQLiteWasmQueryEffectHKT, EffectSQLiteWasmRunResult, TRelations>
+	extends SQLiteEffectDatabase<EffectSQLiteWasmQueryEffectHKT, EffectSQLiteWasmRunResult, TRelations, SqliteClient>
 {
 	static override readonly [entityKind]: string = 'EffectSQLiteWasmDatabase';
 }

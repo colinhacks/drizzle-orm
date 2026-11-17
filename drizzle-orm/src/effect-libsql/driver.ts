@@ -14,7 +14,7 @@ import { type EffectLibsqlQueryEffectHKT, type EffectLibsqlRunResult, EffectLibs
 export { DefaultServices } from '~/effect-core/defaults.ts';
 
 export class EffectLibsqlDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteEffectDatabase<EffectLibsqlQueryEffectHKT, EffectLibsqlRunResult, TRelations>
+	extends SQLiteEffectDatabase<EffectLibsqlQueryEffectHKT, EffectLibsqlRunResult, TRelations, LibsqlClient>
 {
 	static override readonly [entityKind]: string = 'EffectLibsqlDatabase';
 }

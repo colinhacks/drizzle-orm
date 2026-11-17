@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 
-import { SQL } from 'bun';
+import { type SavepointSQL, SQL, type TransactionSQL } from 'bun';
 import { entityKind } from '~/entity.ts';
 import { DrizzleError } from '~/errors.ts';
 import { DefaultLogger } from '~/logger.ts';
@@ -14,7 +14,7 @@ import type { BunSQLiteRunResult } from './session.ts';
 import { BunSQLiteSession } from './session.ts';
 
 export class BunSQLiteDatabase<TRelations extends AnyRelations = EmptyRelations>
-	extends SQLiteAsyncDatabase<'async', BunSQLiteRunResult, TRelations>
+	extends SQLiteAsyncDatabase<'async', BunSQLiteRunResult, TRelations, TransactionSQL | SavepointSQL>
 {
 	static override readonly [entityKind]: string = 'BunSQLiteDatabase';
 }

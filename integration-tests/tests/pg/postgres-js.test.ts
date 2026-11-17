@@ -20,7 +20,7 @@ import { drizzle, postgresJsCodecs } from 'drizzle-orm/postgres-js';
 import type { PostgresJsDatabase, PostgresJsRawExecuteResult } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
-import postgres, { type RowList } from 'postgres';
+import postgres, { type RowList, type TransactionSql } from 'postgres';
 import { describe, expect, expectTypeOf } from 'vitest';
 import { randomString } from '~/utils';
 import { tests } from './common';
@@ -901,4 +901,28 @@ describe('transaction snapshot', () => {
 	test('does not let the id inject SQL', async ({ db }) => {
 		await assertSnapshotIdNotInjectable(db, expect, 'pgjs');
 	});
+});
+
+test('tx.$client is the sql the transaction runs on', async ({ kit }) => {
+	const url = new URL(process.env['PG_CONNECTION_STRING']!);
+	url.pathname = `/${kit.database}`;
+	const client = postgres(url.toString(), { max: 2, onnotice: () => {} });
+	const db = drizzle({ client });
+
+	try {
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<TransactionSql>();
+
+			const [viaClient] = await tx.$client`select txid_current()::text as txid`;
+			const [viaTx] = await tx.execute<{ txid: string }>(sql`select txid_current()::text as txid`);
+			expect(viaClient).toEqual(viaTx);
+
+			await tx.transaction(async (sp) => {
+				const [inSavepoint] = await sp.$client`select txid_current()::text as txid`;
+				expect(inSavepoint).toEqual(viaClient);
+			});
+		});
+	} finally {
+		await client.end();
+	}
 });

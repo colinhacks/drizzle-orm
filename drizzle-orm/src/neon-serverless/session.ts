@@ -44,7 +44,8 @@ export class NeonSession<TRelations extends AnyRelations> extends PgAsyncSession
 	private cache: Cache;
 
 	constructor(
-		private client: NeonClient,
+		/** @internal */
+		readonly client: NeonClient,
 		dialect: PgDialect,
 		private relations: TRelations,
 		private options: NeonSessionOptions = {},
@@ -152,8 +153,16 @@ export class NeonSession<TRelations extends AnyRelations> extends PgAsyncSession
 
 export class NeonTransaction<
 	TRelations extends AnyRelations,
-> extends PgAsyncTransaction<NeonQueryResultHKT, TRelations> {
+> extends PgAsyncTransaction<NeonQueryResultHKT, TRelations, PoolClient | Client> {
 	static override readonly [entityKind]: string = 'NeonTransaction';
+
+	/** @internal */
+	declare session: NeonSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): PoolClient | Client {
+		return this.session.client as PoolClient | Client;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: NeonTransaction<TRelations>) => Promise<T>,

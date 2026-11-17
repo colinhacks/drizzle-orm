@@ -1,4 +1,4 @@
-import { type HTTPQueryOptions, neon, Pool } from '@neondatabase/serverless';
+import { type HTTPQueryOptions, neon, Pool, type PoolClient } from '@neondatabase/serverless';
 import type { BatchItem, BatchResponse } from '~/batch.ts';
 import { entityKind } from '~/entity.ts';
 import { DefaultLogger } from '~/logger.ts';
@@ -38,7 +38,7 @@ export interface DrizzleNetlifyConfig<TRelations extends AnyRelations = EmptyRel
 
 export class NetlifyDbDatabase<
 	TRelations extends AnyRelations = EmptyRelations,
-> extends PgAsyncDatabase<NeonHttpQueryResultHKT, TRelations> {
+> extends PgAsyncDatabase<NeonHttpQueryResultHKT, TRelations, PoolClient> {
 	static override readonly [entityKind]: string = 'NetlifyDbDatabase';
 
 	declare session: NetlifyDbSession<TRelations>;

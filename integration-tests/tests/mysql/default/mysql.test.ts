@@ -6,7 +6,7 @@ import type { MySql2Database, MySql2RawExecuteResult } from 'drizzle-orm/mysql2'
 import { migrate } from 'drizzle-orm/mysql2/migrator';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { createPool as createCallbackPool } from 'mysql2';
-import type { FieldPacket, ResultSetHeader } from 'mysql2/promise';
+import type { Connection, FieldPacket, PoolConnection, ResultSetHeader } from 'mysql2/promise';
 import { createConnection, createPool } from 'mysql2/promise';
 import { describe, expect, expectTypeOf } from 'vitest';
 import { allTypesDataWith, makeAllTypes } from '../all-types';
@@ -514,5 +514,27 @@ test('transaction rejects with original error when connection is dropped', async
 	} finally {
 		await pool.end();
 		await admin.end();
+	}
+});
+
+test('tx.$client is the pool connection the transaction runs on', async ({ client: { database } }) => {
+	const client = createPool({ uri: process.env['MYSQL_CONNECTION_STRING']!, database, connectionLimit: 2 });
+	const db = drizzle({ client });
+
+	try {
+		await db.transaction(async (tx) => {
+			expectTypeOf(tx.$client).toEqualTypeOf<PoolConnection | Connection>();
+			expect(tx.$client).not.toBe(client);
+
+			const [viaClient] = await tx.$client.query('select cast(connection_id() as char) as id');
+			const [viaTx] = await tx.execute(sql`select cast(connection_id() as char) as id`);
+			expect(viaClient).toEqual(viaTx);
+
+			await tx.transaction(async (sp) => {
+				expect(sp.$client).toBe(tx.$client);
+			});
+		});
+	} finally {
+		await client.end();
 	}
 });

@@ -34,7 +34,8 @@ export class TursoDatabaseSyncSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: Database | Transaction,
+		/** @internal */
+		readonly client: Database | Transaction,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: TursoDatabaseSyncSessionOptions,
@@ -141,9 +142,17 @@ export class TursoDatabaseSyncSession<TRelations extends AnyRelations>
 }
 
 export class TursoDatabaseSyncTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', TursoDatabaseSyncRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', TursoDatabaseSyncRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'TursoDatabaseSyncTransaction';
+
+	/** @internal */
+	declare session: TursoDatabaseSyncSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: TursoDatabaseSyncTransaction<TRelations>) => Promise<T>,

@@ -34,7 +34,8 @@ export class TursoDatabaseServerlessSession<TRelations extends AnyRelations>
 	private cache: Cache;
 
 	constructor(
-		private client: Connection | Transaction,
+		/** @internal */
+		readonly client: Connection | Transaction,
 		dialect: SQLiteDialect,
 		private relations: TRelations,
 		private options: TursoDatabaseServerlessSessionOptions,
@@ -140,9 +141,17 @@ export class TursoDatabaseServerlessSession<TRelations extends AnyRelations>
 }
 
 export class TursoDatabaseServerlessTransaction<TRelations extends AnyRelations>
-	extends SQLiteAsyncTransaction<'async', TursoDatabaseServerlessRunResult, TRelations>
+	extends SQLiteAsyncTransaction<'async', TursoDatabaseServerlessRunResult, TRelations, Transaction>
 {
 	static override readonly [entityKind]: string = 'TursoDatabaseServerlessTransaction';
+
+	/** @internal */
+	declare session: TursoDatabaseServerlessSession<TRelations>;
+
+	/** Driver client the transaction runs on, valid inside the transaction callback only */
+	override get $client(): Transaction {
+		return this.session.client as Transaction;
+	}
 
 	override async transaction<T>(
 		transaction: (tx: TursoDatabaseServerlessTransaction<TRelations>) => Promise<T>,
