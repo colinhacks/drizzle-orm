@@ -4,6 +4,7 @@
 import { describe, expect, test } from 'bun:test';
 import { client, PgError } from '../../src/http.ts';
 import { Parser } from '../../src/protocol.ts';
+import type { QueryDebug } from '../../src/types.ts';
 import { caught, TEST_TIMEOUT, testConnect } from '../helpers/db.ts';
 import { dataRow, frame as wireFrame, rowDescription, type WireCol } from '../helpers/wire.ts';
 
@@ -294,6 +295,74 @@ describe("@drizzle-team/postgres/http: shape 'unknown' resolves against the repo
 		const { db } = httpStub(wireResult([{ name: 'n', oid: 25 }], [['42']]));
 		const r = await db.query('select …', [], { shape: { n: 'int4' } });
 		expect(r.rows[0]).toEqual({ n: 42 });
+	});
+});
+
+describe('@drizzle-team/postgres/http: debug', () => {
+	test('the decode plan names each column type, on a cached descriptor, in every mode and in batch and pipeline', async () => {
+		const body = wireResult([{ name: 'big', oid: 20 }, { name: 'tags', oid: 1009 }], [['1', '{a}']]);
+		const cols: QueryDebug['columns'] = [{ name: 'big', oid: 20, format: 'text' }, {
+			name: 'tags',
+			oid: 1009,
+			format: 'text',
+		}];
+		const { db } = httpStub(body);
+		await db.query('select …', [], { mode: 'object' }); // the RowDescription's mapper is cached from here on
+		const o = await db.query('select …', [], { mode: 'object', debug: true });
+		expect(o.rows[0]).toEqual({ big: 1n, tags: ['a'] });
+		expect(o.debug).toMatchObject({ sql: 'select …', mode: 'object', reusedPreparedStatement: false, columns: cols });
+		expect(['jit', 'interpreted']).toContain(o.debug!.decode);
+		const b = await db.query('select …', [], { mode: 'buffer', debug: true });
+		expect(b.rows).toEqual([[Buffer.from('1'), Buffer.from('{a}')]]);
+		expect(b.debug).toMatchObject({ mode: 'buffer', decode: 'none', columns: cols });
+		expect((await db.query('select …', [])).debug).toBeUndefined();
+
+		const [r1] = await db.batch([{ sql: 'select …', debug: true }]);
+		expect(r1!.debug!.columns).toEqual(cols);
+		const [r2] = await db.pipeline([{ sql: 'select …', mode: 'buffer', debug: true }]);
+		expect(r2!.status === 'fulfilled' && r2!.value.debug!.columns).toEqual(cols);
+		const [r3] = await db.parallel([{ sql: 'select …', debug: true }]);
+		expect(r3!.status === 'fulfilled' && r3!.value.debug!.columns).toEqual(cols);
+	});
+
+	test(
+		'names and type OIDs match the socket driver, with no shape and with one that declares the real types',
+		async () => {
+			const sql = `select 1::int8 as big, now() as ts, '{a}'::text[] as tags, '42'::text as n, '{"a":1}'::jsonb as j`;
+			const shape = { big: 'int8:string', ts: 'unknown', tags: 'text[]', n: 'text', j: 'unknown' } as const;
+			const { db } = httpStub(await wireBody(sql), { temporal: 'string', int8: 'string' });
+			const c = await testConnect();
+			const ids = (r: { debug?: QueryDebug }) => r.debug!.columns.map(({ name, oid }) => ({ name, oid }));
+			try {
+				for (const mode of ['array', 'object', 'buffer', 'raw'] as const) {
+					for (const s of [undefined, shape]) {
+						const opts = { mode, debug: true, ...(s ? { shape: s } : {}) };
+						const over = await db.query(sql, [], opts);
+						expect(ids(over)).toEqual(ids(await c.query(sql, [], opts as never)));
+						// with no shape these two modes decode nothing, so no column names a decode target
+						if (!s && (mode === 'buffer' || mode === 'raw')) {
+							expect(over.debug!.columns.every((col) => !col.js)).toBe(true);
+						}
+					}
+				}
+				// a static shape in a mode that decodes nothing: the declared columns, as on the socket
+				const renamed = { x: 'int4', y: 'text' } as const;
+				const plain = `select 1::int4 as a, 'x'::text as b`;
+				const stub = httpStub(await wireBody(plain)).db;
+				const opts = { mode: 'buffer', debug: true, shape: renamed } as const;
+				expect(ids(await stub.query(plain, [], opts))).toEqual(ids(await c.query(plain, [], opts as never)));
+			} finally {
+				await c.end();
+			}
+		},
+		TEST_TIMEOUT,
+	);
+
+	test('a shape reports the type the column was decoded as', async () => {
+		const { db } = httpStub(wireResult([{ name: 'n', oid: 25 }], [['42']]));
+		const r = await db.query('select …', [], { shape: { n: 'int4' }, debug: true });
+		expect(r.rows[0]).toEqual({ n: 42 });
+		expect(r.debug!.columns).toEqual([{ name: 'n', oid: 23, format: 'text' }]);
 	});
 });
 

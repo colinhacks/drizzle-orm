@@ -19,7 +19,7 @@ import {
 	setTransactionSnapshotSql,
 } from './encode.ts';
 import { markConnectionLost, parseErrorFields, PgError } from './errors.ts';
-import { isEvalAvailable, type RowMapper, RowMappers, type ShapePlan } from './mapper.ts';
+import { decodePlan, isEvalAvailable, type RowMapper, RowMappers, type ShapePlan } from './mapper.ts';
 import {
 	type ParamsEncoder,
 	parseCommandComplete,
@@ -1382,23 +1382,12 @@ export class Connection<Config extends ConnectionTypeConfig = ConnectionTypeConf
 
 	// Assemble the { debug: true } decode plan from what the task resolved to.
 	private buildDebug(t: Task): QueryDebug {
-		const src = (t.mapper as (RowMapper & { source?: string }) | undefined)?.source; // compileRow attaches .source; interpreted has none
 		const cols = t._debugCols ?? (t.fields ?? []).map((f) => ({ name: f.name, oid: f.dataTypeOid } as CodegenCol));
 		return {
-			sql: t.sql,
-			mode: t.mode,
+			...decodePlan(t.sql, t.mode, t.mapper, cols),
 			statementName: t.name,
 			reusedPreparedStatement: !!t._reused,
 			...(t._repreparedSqlChanged ? { repreparedSqlChanged: true } : {}),
-			decode: t.mapper ? (src ? 'jit' : 'interpreted') : 'none', // buffer/raw have no mapper
-			...(src ? { mapperSource: src } : {}),
-			columns: cols.map((c) => ({
-				name: c.name,
-				oid: c.oid,
-				format: c.format === 'binary' ? 'binary' : 'text',
-				...(c.js ? { js: c.js } : {}),
-				...(c.json ? { json: true } : {}),
-			})),
 			...(t._retries ? { retries: t._retries, retriedErrors: t._retryErrors } : {}),
 		};
 	}

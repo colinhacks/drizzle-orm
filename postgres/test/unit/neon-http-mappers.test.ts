@@ -2,6 +2,7 @@
 // queries, a static shape by identity, 'unknown' shape columns per response, and the batch path.
 import { describe, expect, test } from 'bun:test';
 import { createPool } from '../../src/neon-http.ts';
+import type { QueryDebug } from '../../src/types.ts';
 
 type Field = { name: string; dataTypeID: number };
 const result = (fields: Field[], rows: (string | null)[][]) => ({
@@ -124,5 +125,51 @@ describe('neon-http row mappers', () => {
 		}]);
 		expect(a!.rows as unknown[]).toEqual([{ id: 1, name: 'a' }]);
 		expect(b!.rows as unknown[]).toEqual([{ n: 2, label: 'b' }]);
+	});
+
+	test('debug: the decode plan names each column type, on a remembered layout, in every mode and in a batch', async () => {
+		const db = client(() => result(idName, [['1', 'a']]));
+		const cols: QueryDebug['columns'] = [{ name: 'id', oid: 23, format: 'text' }, {
+			name: 'name',
+			oid: 25,
+			format: 'text',
+		}];
+		await db.query('q', [], { mode: 'object' }); // the `fields` bytes are remembered from here on
+		const o = await db.query('q', [], { mode: 'object', debug: true });
+		expect(o.rows).toEqual([{ id: 1, name: 'a' }]);
+		expect(o.debug).toMatchObject({ sql: 'q', mode: 'object', reusedPreparedStatement: false, columns: cols });
+		expect(['jit', 'interpreted']).toContain(o.debug!.decode);
+		const b = await db.query('q', [], { mode: 'buffer', debug: true });
+		expect(b.rows).toEqual([[Buffer.from('1'), Buffer.from('a')]]);
+		expect(b.debug).toMatchObject({ mode: 'buffer', decode: 'none', columns: cols });
+		expect((await db.query('q', [])).debug).toBeUndefined();
+
+		const tx = client(() => ({ results: [result(idName, [['1', 'a']]), result(other, [['2', 'b']])] }));
+		const [t1, t2] = await tx.transaction([{ sql: 'q1', debug: true }, { sql: 'q2' }]);
+		expect(t1!.debug!.columns).toEqual(cols);
+		expect(t2!.debug).toBeUndefined();
+		const [p] = await db.parallel([{ sql: 'q', mode: 'buffer', debug: true }]);
+		expect(p!.status === 'fulfilled' && p!.value.debug!.columns).toEqual(cols);
+	});
+
+	test('debug: a shape reports what it decoded by, a mode with no mapper no decode target, no columns none', async () => {
+		const fetch =
+			(async () =>
+				new Response(JSON.stringify(result([{ name: 'n', dataTypeID: 25 }, { name: 'ts', dataTypeID: 1184 }], [[
+					'42',
+					'2024-01-02 03:04:05+00',
+				]])))) as unknown as typeof globalThis.fetch;
+		const db = createPool({ url: 'postgres://u:p@ep-x.region.aws.neon.tech/db', fetch, temporal: 'string' });
+		const shaped = await db.query('q', [], { shape: { n: 'int4', ts: 'unknown' }, debug: true });
+		expect(shaped.rows).toEqual([{ n: 42, ts: '2024-01-02 03:04:05+00' }]);
+		expect(shaped.debug!.columns.map((c) => c.oid)).toEqual([23, 1184]);
+		const b = await db.query('q', [], { mode: 'buffer', debug: true });
+		expect(b.debug!.columns).toEqual([{ name: 'n', oid: 25, format: 'text' }, {
+			name: 'ts',
+			oid: 1184,
+			format: 'text',
+		}]);
+		const none = client(() => result([], []));
+		expect((await none.query('do', [], { shape: { a: 'unknown' }, debug: true })).debug!.columns).toEqual([]);
 	});
 });

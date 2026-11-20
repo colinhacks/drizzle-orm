@@ -10,7 +10,7 @@ import { pickDecoder } from './decode.ts';
 import { parseRowDescription } from './protocol.ts';
 import type { CustomTypeDef } from './registry.ts';
 import { reconcileCols } from './shape-compat.ts';
-import type { Decoder, Field } from './types.ts';
+import type { Decoder, Field, QueryDebug, ResultMode } from './types.ts';
 
 /** Decodes one DataRow body. `start` is where the body begins in `body` (default 0): the wire transports
  *  pass the socket chunk and an offset, so no view is made per row. */
@@ -187,6 +187,45 @@ export function buildMapperFactory(
 		return jitMapper;
 	}
 	return hasEval ? jitMapper : interpretedMapper; // 'auto'
+}
+
+/** The `{ debug: true }` decode plan of one result: which mapper ran and the resolved columns. Every entry
+ *  builds it here; the socket driver adds its prepared-statement fields on top. */
+export function decodePlan(
+	sql: string,
+	mode: ResultMode,
+	mapper: RowMapper | null | undefined,
+	cols: readonly CodegenCol[],
+): QueryDebug {
+	const src = (mapper as (RowMapper & { source?: string }) | null | undefined)?.source; // compileRow attaches .source; interpreted has none
+	return {
+		sql,
+		mode,
+		reusedPreparedStatement: false,
+		decode: mapper ? (src ? 'jit' : 'interpreted') : 'none', // buffer/raw have no mapper
+		...(src ? { mapperSource: src } : {}),
+		columns: cols.map((c) => ({
+			name: c.name,
+			oid: c.oid,
+			format: c.format === 'binary' ? 'binary' : 'text',
+			...(c.js ? { js: c.js } : {}),
+			...(c.json ? { json: true } : {}),
+		})),
+	};
+}
+
+/** `decodePlan` for a client over HTTP. With no shape, a mode with no mapper (buffer, raw) decoded nothing, so it
+ *  reports the server's columns as they are. Otherwise it reports `cols`, the columns the client decodes by, which
+ *  for a shape are the declared ones. A statement with no result columns reports none, whatever a shape declares. */
+export function reportedPlan(
+	sql: string,
+	mode: ResultMode,
+	mapper: RowMapper | null,
+	cols: readonly CodegenCol[],
+	reported: readonly { name: string; oid: number }[],
+	shaped: boolean,
+): QueryDebug {
+	return decodePlan(sql, mode, mapper, reported.length === 0 ? [] : shaped || mapper ? cols : reported);
 }
 
 type Mode = 'array' | 'object';

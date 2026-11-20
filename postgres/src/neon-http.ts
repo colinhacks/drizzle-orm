@@ -17,7 +17,7 @@ import { type CodegenCol, INSTANT_OIDS, tagArrayCol } from './decode.ts';
 import { defaultDecoders } from './decode.ts';
 import { encodeJsonParams as encodeParams, setTransactionSnapshotSql } from './encode.ts';
 import { PgError } from './errors.ts';
-import { RowArena, type RowMapper, RowMappers, SeenBytes } from './mapper.ts';
+import { reportedPlan, RowArena, type RowMapper, RowMappers, SeenBytes } from './mapper.ts';
 import { parseDataRow } from './protocol.ts';
 import type { ShapeMapper } from './shape.ts';
 import { mergeUnknownCols, type ShapeSpec, shapeTextCols } from './spec.ts';
@@ -57,6 +57,9 @@ export interface NeonHttpQueryOptions {
 	mode?: ResultMode;
 	/** Decode with a declared column shape (typed/JSON targets). Binary formats are ignored — HTTP is text. */
 	shape?: ShapeSpec | ShapeMapper;
+	/** Attach the resolved decode plan to the result as `.debug`, as the wire driver does: each column's
+	 *  name and type OID, and which row mapper ran. With a `shape`, the columns are the ones it declares. */
+	debug?: boolean;
 	timeout?: number;
 	signal?: AbortSignal;
 }
@@ -72,6 +75,7 @@ export interface NeonTxQuery {
 	params?: unknown[];
 	mode?: ResultMode;
 	shape?: ShapeSpec | ShapeMapper;
+	debug?: boolean;
 }
 
 const ISO_HEADER: Record<Isolation, string> = {
@@ -148,6 +152,8 @@ interface NeonField {
 	name: string;
 	dataTypeID: number;
 }
+
+const reportedField = (f: NeonField) => ({ name: f.name, oid: f.dataTypeID });
 
 const FKEY = Buffer.from('"fields":'), RKEY = Buffer.from('"rows":');
 
@@ -296,16 +302,17 @@ export class NeonHttpClient {
 
 	// Column plan + mapper for one result. Cached, cheapest first: a static shape by identity, the
 	// `fields` JSON text (single-statement fast path), the resolved columns. `ncols` is what the row
-	// scanner reads per row: the response's own column count.
+	// scanner reads per row: the response's own column count. `cols` is missing only on the `fields`
+	// JSON path, which builds the columns on a miss alone: pass `fieldsJson` null to always get them.
 	private planFor(
 		fields: NeonField[],
 		fieldsJson: string | null,
 		shape: ShapeSpec | ShapeMapper | undefined,
 		mode: ResultMode,
-	): { mapper: RowMapper | null; columns: string[] } {
+	): { mapper: RowMapper | null; columns: string[]; cols?: CodegenCol[] } {
 		if (mode !== 'array' && mode !== 'object') {
 			const cols = this.planCols(fields, shape);
-			return { mapper: null, columns: cols.map((c) => c.name) };
+			return { mapper: null, columns: cols.map((c) => c.name), cols };
 		}
 		if (shape) {
 			const plan = this.rowMappers.plan(shape, () => this.resolveCols(shapeTextCols(shape)));
@@ -313,6 +320,7 @@ export class NeonHttpClient {
 				return {
 					mapper: this.rowMappers.planMapper(plan, mode),
 					columns: plan.cols.map((c) => c.name),
+					cols: plan.cols,
 				};
 			}
 		} else if (fieldsJson !== null) {
@@ -320,7 +328,7 @@ export class NeonHttpClient {
 			return { mapper, columns: fields.map((f) => f.name) };
 		}
 		const cols = this.planCols(fields, shape);
-		return { mapper: this.rowMappers.forCols(cols, mode), columns: cols.map((c) => c.name) };
+		return { mapper: this.rowMappers.forCols(cols, mode), columns: cols.map((c) => c.name), cols };
 	}
 
 	private rowFrom(mode: ResultMode, mapper: ((b: Buffer) => unknown) | null, body: Buffer): unknown {
@@ -332,19 +340,25 @@ export class NeonHttpClient {
 	// Fast path — decode a single-statement response straight from the raw bytes (no JSON.parse of rows).
 	private decodeSingleRaw(
 		raw: Buffer,
+		sql: string,
 		mode: ResultMode,
 		shape: ShapeSpec | ShapeMapper | undefined,
+		debug: boolean | undefined,
 	): QueryResult<never> {
 		const fi = raw.indexOf(FKEY);
 		const fvs = skipWs(raw, fi + FKEY.length);
 		let fve = 0;
 		let mapper: RowMapper | null = null;
 		let columns!: string[];
+		let cols: CodegenCol[] | undefined;
+		let fields: NeonField[] | undefined; // parsed whenever `debug` is set, which never takes the remembered bytes
 		// A plain query's `fields` value is compared, byte for byte and in place, with the ones this client has
 		// already decoded. A match gives the mapper and the column names without finding the value's end,
 		// building its string or parsing it: on a small result that work costs more than the rows do. The
 		// remembered bytes are one whole JSON array, so matching them at `fvs` means the value there IS that array.
-		const seen = shape === undefined && (mode === 'array' || mode === 'object') ? this.seenFields[mode] : null;
+		const seen = !debug && shape === undefined && (mode === 'array' || mode === 'object')
+			? this.seenFields[mode]
+			: null;
 		const hit = seen?.find(raw, fvs, -1);
 		if (hit) {
 			fve = fvs + hit.bytes.length;
@@ -352,8 +366,8 @@ export class NeonHttpClient {
 		} else {
 			fve = endOfValue(raw, fvs);
 			const fieldsJson = raw.toString('utf8', fvs, fve);
-			const fields = JSON.parse(fieldsJson) as NeonField[];
-			({ mapper, columns } = this.planFor(fields, fieldsJson, shape, mode));
+			fields = JSON.parse(fieldsJson) as NeonField[];
+			({ mapper, columns, cols } = this.planFor(fields, debug ? null : fieldsJson, shape, mode));
 			seen?.add(raw, fvs, fve, { mapper, columns });
 		}
 		const ri = raw.indexOf(RKEY, fve);
@@ -397,21 +411,25 @@ export class NeonHttpClient {
 			if (raw[i] === 0x5d) i++; // past the row's ']'
 			rows.push(this.rowFrom(mode, mapper, rb.end(ncols)));
 		}
-		return {
+		const res: QueryResult<never> = {
 			rows: rows as never[],
 			columns,
 			rowCount: numField(raw, '"rowCount":', i),
 			command: strField(raw, '"command":', i),
 		};
+		if (debug) res.debug = reportedPlan(sql, mode, mapper, cols!, fields!.map(reportedField), !!shape);
+		return res;
 	}
 
 	// Batch path — decode an already-parsed result object (transaction responses are small, so JSON.parse is fine).
 	private decodeParsed(
 		result: { fields: NeonField[]; rows: (string | null)[][]; command?: string | null; rowCount?: number | null },
+		sql: string,
 		mode: ResultMode,
 		shape: ShapeSpec | ShapeMapper | undefined,
+		debug: boolean | undefined,
 	): QueryResult<never> {
-		const { mapper, columns } = this.planFor(result.fields, null, shape, mode);
+		const { mapper, columns, cols } = this.planFor(result.fields, null, shape, mode);
 		const ncols = columns.length;
 		const rb = new RowArena();
 		const rows = result.rows.map((row) => {
@@ -419,39 +437,41 @@ export class NeonHttpClient {
 			for (let c = 0; c < ncols; c++) rb.push(row[c] ?? null);
 			return this.rowFrom(mode, mapper, rb.end(ncols));
 		});
-		return {
+		const res: QueryResult<never> = {
 			rows: rows as never[],
 			columns,
 			rowCount: result.rowCount ?? rows.length,
 			command: result.command ?? null,
 		};
+		if (debug) res.debug = reportedPlan(sql, mode, mapper, cols!, result.fields.map(reportedField), !!shape);
+		return res;
 	}
 
 	/** Run one SQL statement over HTTP and return a QueryResult. `sql` may be a string or builder chunks. */
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { shape: ShapeSpec | ShapeMapper; mode?: 'object'; timeout?: number; signal?: AbortSignal },
+		opts: { shape: ShapeSpec | ShapeMapper; mode?: 'object'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Record<string, unknown>>>;
 	query(
 		sql: string,
 		params?: unknown[],
-		opts?: { mode?: 'array'; shape?: ShapeSpec | ShapeMapper; timeout?: number; signal?: AbortSignal },
+		opts?: { mode?: 'array'; shape?: ShapeSpec | ShapeMapper; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<unknown[]>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'object'; shape?: ShapeSpec | ShapeMapper; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'object'; shape?: ShapeSpec | ShapeMapper; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Record<string, unknown>>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'buffer'; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'buffer'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<(Buffer | null)[]>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'raw'; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'raw'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Buffer>>;
 	async query(sql: string, params: unknown[] = [], opts: NeonHttpQueryOptions = {}): Promise<QueryResult<never>> {
 		const mode: ResultMode = opts.mode ?? (opts.shape ? 'object' : 'array');
@@ -465,7 +485,7 @@ export class NeonHttpClient {
 			);
 		}
 		const res = await this.post({ query, params: encodeParams(params) }, await this.headers(), this.signalFor(opts));
-		return this.decodeSingleRaw(Buffer.from(await res.arrayBuffer()), mode, opts.shape);
+		return this.decodeSingleRaw(Buffer.from(await res.arrayBuffer()), sql, mode, opts.shape, opts.debug);
 	}
 
 	/** Run a set of queries as ONE ATOMIC transaction in a single request (BEGIN…COMMIT server-side, or
@@ -503,7 +523,7 @@ export class NeonHttpClient {
 		};
 		return j.results.slice(head.length).map((r, i) => {
 			const q = queries[i]!;
-			return this.decodeParsed(r, q.mode ?? (q.shape ? 'object' : 'array'), q.shape);
+			return this.decodeParsed(r, q.sql, q.mode ?? (q.shape ? 'object' : 'array'), q.shape, q.debug);
 		});
 	}
 
@@ -521,6 +541,7 @@ export class NeonHttpClient {
 				run.call(this, q.sql, q.params ?? [], {
 					mode: q.mode,
 					shape: q.shape,
+					debug: q.debug,
 					timeout: opts.timeout,
 					signal: opts.signal,
 				})

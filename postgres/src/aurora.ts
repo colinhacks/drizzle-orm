@@ -26,7 +26,7 @@ import { type CodegenCol, INSTANT_OIDS, tagArrayCol } from './decode.ts';
 import { arrayLiteral, setTransactionSnapshotSql } from './encode.ts';
 import { PgError } from './errors.ts';
 import { parseJsonBuffer } from './jsonparse.ts';
-import { RowArena, RowMappers } from './mapper.ts';
+import { decodePlan, reportedPlan, RowArena, RowMappers } from './mapper.ts';
 import { parseDataRow } from './protocol.ts';
 import type { ShapeMapper } from './shape.ts';
 import { type AwsCredentials, signRequest } from './sigv4.ts';
@@ -209,11 +209,11 @@ const TYPENAME_OID: Record<string, number> = {
 // exactly what columnMetadata.typeName carries. Derive those from the scalar map rather than listing
 // them, so the two can never drift.
 function oidForTypeName(t: string): number {
-	const direct = TYPENAME_OID[t];
-	if (direct !== undefined) return direct;
+	// Own keys only: a user type can be named `constructor` or `toString`.
+	if (Object.hasOwn(TYPENAME_OID, t)) return TYPENAME_OID[t]!;
 	if (t.charCodeAt(0) === 0x5f) { // '_elem'
-		const elem = TYPENAME_OID[t.slice(1)];
-		const arr = elem === undefined ? undefined : ARRAY_OID[elem];
+		const name = t.slice(1);
+		const arr = Object.hasOwn(TYPENAME_OID, name) ? ARRAY_OID[TYPENAME_OID[name]!] : undefined;
 		if (arr !== undefined) return arr;
 	}
 	return 25; // unknown (enum, domain, composite, …): decode as its raw text, like the wire driver does
@@ -340,6 +340,11 @@ export interface AuroraQueryOptions {
 	 *  shape. Positional — entry i describes column i. `'unknown'` defers one column to the reported
 	 *  type. Implies mode:'object' unless mode says otherwise. */
 	shape?: ShapeSpec | ShapeMapper;
+	/** Attach the resolved decode plan to the result as `.debug`, as the wire driver does: each column's
+	 *  name and type OID, and which row mapper ran. With a `shape`, the columns are the ones it declares.
+	 *  Otherwise the OID comes from the Data API's type name, and a type this client has no OID for (an
+	 *  enum, a domain, a composite, and some built-in types) reports `text` (25), as it decodes as text. */
+	debug?: boolean;
 	timeout?: number;
 	signal?: AbortSignal;
 }
@@ -498,10 +503,18 @@ export class AuroraClient {
 		sql: string,
 		mode: ResultMode,
 		shape?: ShapeSpec | ShapeMapper,
+		debug?: boolean,
 	): QueryResult<never> {
 		const meta = r.columnMetadata;
 		if (!meta || !r.records) { // DML with no result set
-			return { rows: [], columns: [], rowCount: r.numberOfRecordsUpdated ?? null, command: firstKeyword(sql) };
+			const res: QueryResult<never> = {
+				rows: [],
+				columns: [],
+				rowCount: r.numberOfRecordsUpdated ?? null,
+				command: firstKeyword(sql),
+			};
+			if (debug) res.debug = decodePlan(sql, mode, null, []);
+			return res;
 		}
 		// A static shape: resolved + mapped once per shape object. Otherwise (no shape, or one with
 		// 'unknown' columns) the per-result plan, cached by its columns. No RowDescription-style key: the
@@ -537,12 +550,17 @@ export class AuroraClient {
 			if (mode === 'buffer') return parseDataRow(b).map((cell) => (cell == null ? null : Buffer.from(cell)));
 			return Buffer.from(b);
 		});
-		return {
+		const res: QueryResult<never> = {
 			rows: rows as never[],
 			columns: cols.map((c) => c.name),
 			rowCount: r.records.length,
 			command: firstKeyword(sql),
 		};
+		if (debug) {
+			const reported = meta.map((m) => ({ name: m.label ?? m.name ?? '?', oid: oidForTypeName(m.typeName) }));
+			res.debug = reportedPlan(sql, mode, mapper, cols, reported, !!shape);
+		}
+		return res;
 	}
 
 	private base(): { resourceArn: string; secretArn: string; database?: string } {
@@ -557,27 +575,27 @@ export class AuroraClient {
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { shape: ShapeSpec | ShapeMapper; mode?: 'object'; timeout?: number; signal?: AbortSignal },
+		opts: { shape: ShapeSpec | ShapeMapper; mode?: 'object'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Record<string, unknown>>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'object'; shape?: ShapeSpec | ShapeMapper; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'object'; shape?: ShapeSpec | ShapeMapper; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Record<string, unknown>>>;
 	query(
 		sql: string,
 		params?: unknown[],
-		opts?: { mode?: 'array'; shape?: ShapeSpec | ShapeMapper; timeout?: number; signal?: AbortSignal },
+		opts?: { mode?: 'array'; shape?: ShapeSpec | ShapeMapper; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<unknown[]>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'buffer'; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'buffer'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<(Buffer | null)[]>>;
 	query(
 		sql: string,
 		params: unknown[],
-		opts: { mode: 'raw'; timeout?: number; signal?: AbortSignal },
+		opts: { mode: 'raw'; debug?: boolean; timeout?: number; signal?: AbortSignal },
 	): Promise<QueryResult<Buffer>>;
 	async query(sql: string, params: unknown[] = [], opts: AuroraQueryOptions = {}): Promise<QueryResult<never>> {
 		const tx = TX_SQL.exec(sql);
@@ -599,7 +617,7 @@ export class AuroraClient {
 		const r = await this.call<
 			{ columnMetadata?: ColumnMetadata[]; records?: Field[][]; numberOfRecordsUpdated?: number }
 		>('Execute', body, this.signalFor(opts));
-		return this.decodeResult(r, sql, opts.mode ?? (opts.shape ? 'object' : 'array'), opts.shape);
+		return this.decodeResult(r, sql, opts.mode ?? (opts.shape ? 'object' : 'array'), opts.shape, opts.debug);
 	}
 
 	/** Bulk-execute ONE statement over many parameter sets (BatchExecuteStatement). For INSERT/UPDATE/DELETE —

@@ -18,7 +18,7 @@ import { addBrand } from './brand.ts';
 import { buildDecoders, type CodegenCol, INSTANT_OIDS, tagArrayCol } from './decode.ts';
 import { encodeJsonParams, setTransactionSnapshotSql } from './encode.ts';
 import { parseErrorFields, PgError } from './errors.ts';
-import { type RowMapper, RowMappers } from './mapper.ts';
+import { decodePlan, reportedPlan, type RowMapper, RowMappers } from './mapper.ts';
 import { parseCommandComplete, Parser, type RawMessage } from './protocol.ts';
 import type { ShapeMapper } from './shape.ts';
 import { mergeUnknownCols, type ParamType, resolveParamTypes, type ShapeSpec, shapeTextCols } from './spec.ts';
@@ -51,6 +51,9 @@ export interface HttpQueryOptions {
 	shape?: ShapeSpec | ShapeMapper;
 	/** Declared parameter types for Parse (Drizzle Postgres aliases or raw OIDs) — validated locally, sent as given. */
 	types?: readonly ParamType[];
+	/** Attach the resolved decode plan to the result as `.debug`, as the wire driver does: each column's
+	 *  name and type OID, and which row mapper ran. With a `shape`, the columns are the ones it declares. */
+	debug?: boolean;
 	timeout?: number;
 	signal?: AbortSignal;
 }
@@ -61,6 +64,7 @@ export interface HttpBatchQuery {
 	types?: readonly ParamType[];
 	mode?: ResultMode;
 	shape?: ShapeSpec | ShapeMapper;
+	debug?: boolean;
 }
 
 export type HttpBatchOptions = BatchOptions & {
@@ -98,6 +102,8 @@ interface RawResult {
 	rowCount: number | null;
 	error: PgError | null;
 }
+
+const reportedField = (f: Field) => ({ name: f.name, oid: f.dataTypeOid });
 
 export class HttpClient {
 	private cfg: HttpConfig;
@@ -277,19 +283,21 @@ export class HttpClient {
 	}
 
 	// Mapper + column names for one result. Cached, cheapest first: a static shape by identity, the
-	// RowDescription bytes, the resolved columns (a shape with 'unknown' columns).
+	// RowDescription bytes, the resolved columns (a shape with 'unknown' columns). `cols` is missing only on
+	// the RowDescription path, which builds the columns on a miss alone: pass `desc` null to always get them.
 	private mapperFor(
 		fields: Field[],
 		desc: Buffer | null,
 		shape: ShapeSpec | ShapeMapper | undefined,
 		mode: 'array' | 'object',
-	): { mapper: RowMapper; columns: string[] } {
+	): { mapper: RowMapper; columns: string[]; cols?: CodegenCol[] } {
 		if (shape) {
 			const plan = this.rowMappers.plan(shape, () => this.resolveCols(shapeTextCols(shape)));
 			if (!plan.deferred) {
 				return {
 					mapper: this.rowMappers.planMapper(plan, mode),
 					columns: plan.cols.map((c) => c.name),
+					cols: plan.cols,
 				};
 			}
 		} else if (desc !== null) {
@@ -297,7 +305,7 @@ export class HttpClient {
 			return { mapper, columns: fields.map((f) => f.name) };
 		}
 		const cols = this.planCols(fields, shape);
-		return { mapper: this.rowMappers.forCols(cols, mode), columns: cols.map((c) => c.name) };
+		return { mapper: this.rowMappers.forCols(cols, mode), columns: cols.map((c) => c.name), cols };
 	}
 
 	private decode(
@@ -305,6 +313,7 @@ export class HttpClient {
 		sql: string,
 		mode: ResultMode | undefined,
 		shape: ShapeSpec | ShapeMapper | undefined,
+		debug: boolean | undefined,
 	): QueryResult<never> {
 		if (r.error) throw r.error;
 		const m: ResultMode = mode ?? (shape ? 'object' : 'array');
@@ -316,16 +325,28 @@ export class HttpClient {
 					'@drizzle-team/postgres/http: rows arrived with no RowDescription and no cached descriptor — desc elision desync (the gateway omitted T for a statement this client never saw)',
 				);
 			}
-			return { rows: [], columns: [], rowCount: r.rowCount, command: r.command };
+			const res: QueryResult<never> = { rows: [], columns: [], rowCount: r.rowCount, command: r.command };
+			if (debug) res.debug = decodePlan(sql, m, null, []);
+			return res;
 		}
 		if (m === 'array' || m === 'object') {
-			const { mapper, columns } = this.mapperFor(fields, r.desc ?? cached?.desc ?? null, shape, m);
+			const desc = debug ? null : r.desc ?? cached?.desc ?? null; // debug: build the columns, not just the mapper
+			const { mapper, columns, cols } = this.mapperFor(fields, desc, shape, m);
 			const rows = r.rows.map((b) => mapper(b));
-			return { rows: rows as never[], columns, rowCount: r.rowCount, command: r.command };
+			const res: QueryResult<never> = { rows: rows as never[], columns, rowCount: r.rowCount, command: r.command };
+			if (debug) res.debug = reportedPlan(sql, m, mapper, cols!, fields.map(reportedField), !!shape);
+			return res;
 		}
 		const cols = this.planCols(fields, shape);
 		const rows = r.rows.map((b) => (m === 'buffer' ? parseDataRowCells(b) : Buffer.from(b)));
-		return { rows: rows as never[], columns: cols.map((c) => c.name), rowCount: r.rowCount, command: r.command };
+		const res: QueryResult<never> = {
+			rows: rows as never[],
+			columns: cols.map((c) => c.name),
+			rowCount: r.rowCount,
+			command: r.command,
+		};
+		if (debug) res.debug = reportedPlan(sql, m, null, cols, fields.map(reportedField), !!shape);
+		return res;
 	}
 
 	private guard(sql: string): void {
@@ -386,7 +407,7 @@ export class HttpClient {
 				`@drizzle-team/postgres/http: expected 1 result, got ${results.length} — refusing to mis-attribute`,
 			);
 		}
-		return this.decode(results[0]!, sql, opts.mode, opts.shape);
+		return this.decode(results[0]!, sql, opts.mode, opts.shape, opts.debug);
 	}
 
 	/** Atomic batch: BEGIN…COMMIT on one gateway connection. Any failure — including one that fires AT
@@ -434,7 +455,9 @@ export class HttpClient {
 				`@drizzle-team/postgres/http: ${queries.length} statements but ${results.length} results — refusing to mis-attribute`,
 			);
 		}
-		return results.map((r, i) => this.decode(r, queries[i]!.sql, queries[i]!.mode, queries[i]!.shape));
+		return results.map((r, i) =>
+			this.decode(r, queries[i]!.sql, queries[i]!.mode, queries[i]!.shape, queries[i]!.debug)
+		);
 	}
 
 	/** Pipelined, NO transaction: each statement autocommits, so statement i can fail while the others
@@ -468,7 +491,7 @@ export class HttpClient {
 			try {
 				return {
 					status: 'fulfilled' as const,
-					value: this.decode(r, queries[i]!.sql, queries[i]!.mode, queries[i]!.shape),
+					value: this.decode(r, queries[i]!.sql, queries[i]!.mode, queries[i]!.shape, queries[i]!.debug),
 				};
 			} catch (e) {
 				return { status: 'rejected' as const, reason: e as PgError };
@@ -489,6 +512,7 @@ export class HttpClient {
 					mode: q.mode,
 					shape: q.shape,
 					types: q.types,
+					debug: q.debug,
 					timeout: opts.timeout,
 					signal: opts.signal,
 				})

@@ -9,6 +9,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { type AuroraConfig, bind, connect, PgError, toParameters } from '../../src/aurora.ts';
 import { Shape } from '../../src/shape.ts';
 import { signRequest, signV4 } from '../../src/sigv4.ts';
+import type { QueryDebug } from '../../src/types.ts';
 
 describe('SigV4 signer (src/sigv4.ts)', () => {
 	test('matches AWS documented vector: GET iam ListUsers 20150830', async () => {
@@ -401,6 +402,51 @@ describe('aurora: output shapes', () => {
 		const err = await db.query('select …', [], { shape: { a: 'int4' } }).catch((e) => e) as Error;
 		expect(err.message).toContain('shape declares 1 column(s)');
 		expect(err.message).toContain('returned 2');
+	});
+});
+
+describe('aurora: debug', () => {
+	test('the decode plan names the type OID each column was decoded as, in every mode', async () => {
+		const meta = [{ name: 'id', typeName: 'int8' }, { name: 'tags', typeName: '_text' }, {
+			name: 'mood',
+			typeName: 'mood',
+		}];
+		const recs = [[{ stringValue: '7' }, { arrayValue: { stringValues: ['a'] } }, { stringValue: 'happy' }]];
+		const cols: QueryDebug['columns'] = [
+			{ name: 'id', oid: 20, format: 'text' },
+			{ name: 'tags', oid: 1009, format: 'text' },
+			{ name: 'mood', oid: 25, format: 'text' }, // a type the metadata can't name decodes as text, and says so
+		];
+		const db = await connect(CFG(rs(meta, recs).fetchImpl));
+		const o = await db.query('select …', [], { mode: 'object', debug: true });
+		expect(o.rows[0]).toEqual({ id: 7n, tags: ['a'], mood: 'happy' });
+		expect(o.debug).toMatchObject({ sql: 'select …', mode: 'object', reusedPreparedStatement: false, columns: cols });
+		const b = await db.query('select …', [], { mode: 'buffer', debug: true });
+		expect(b.debug).toMatchObject({ mode: 'buffer', decode: 'none', columns: cols });
+		expect((await db.query('select …', [])).debug).toBeUndefined();
+
+		const s = await db.query('select …', [], {
+			shape: { id: 'int8:string', tags: 'unknown', mood: 'text' },
+			debug: true,
+		});
+		expect(s.debug!.columns).toEqual([{ ...cols[0]!, js: 'string' }, cols[1]!, cols[2]!]);
+		const declared = await db.query('select …', [], {
+			shape: { id: 'int4', tags: 'unknown', mood: 'text' },
+			debug: true,
+		});
+		expect(declared.debug!.columns[0]!.oid).toBe(23); // the type the shape decoded the column as
+
+		const meta2 = [{ name: 'v', typeName: 'constructor' }, { name: 'w', typeName: '_toString' }];
+		const named = await connect(CFG(rs(meta2, [[{ stringValue: 'a' }, { stringValue: '{b}' }]]).fetchImpl));
+		const own = await named.query('select …', [], { mode: 'object', debug: true });
+		expect(own.rows[0]).toEqual({ v: 'a', w: '{b}' });
+		expect(own.debug!.columns.map((c) => c.oid)).toEqual([25, 25]); // a user type named after an Object.prototype key
+
+		const dml = await connect(CFG(mockFetch(() => ({ json: { numberOfRecordsUpdated: 1 } })).fetchImpl));
+		expect((await dml.query('update t set x = 1', [], { debug: true })).debug).toMatchObject({
+			decode: 'none',
+			columns: [],
+		});
 	});
 });
 
